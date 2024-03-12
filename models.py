@@ -19,7 +19,7 @@ def entropy(p):
 
 def conditional_entropy(matrix):
     prob = matrix.sum(axis=0) / np.sum(matrix) #P(S)
-    cond_prob = np.where(matrix.sum(axis=0) == 0, 1 / matrix.shape[0], matrix / matrix.sum(axis=0)) # P(r(=1:4) | S); Empty signals are equally likely to refer to any object
+    cond_prob = np.where(matrix.sum(axis=0) == 0, 0, matrix / matrix.sum(axis=0)) # P(r(=1:4) | S); Empty signals are equally likely to refer to any object
 
     cond_entropy = entropy(cond_prob) / np.log(matrix.shape[0]) # Hnorm(r | S)
 
@@ -27,13 +27,11 @@ def conditional_entropy(matrix):
 
 def mutual_information(matrix):
   sig_prob = matrix.sum(axis=0) / np.sum(matrix) # P(S)
-  # ref_prob = matrix.sum(axis=1) / np.sum(matrix) # P(R)
 
   sig_entropy = np.sum(entropy(sig_prob)) / np.log(np.size(sig_prob))
-  # ref_entropy = np.sum(entropy(ref_prob))
   cond_entropy = np.sum(conditional_entropy(matrix.T))
 
-  return (sig_entropy - cond_entropy)  / sig_entropy
+  return (sig_entropy - cond_entropy)  #/ sig_entropy
 
 
 ### REPLICATION - Ferrer i Cancho & Sole (2002) ###
@@ -46,41 +44,32 @@ class SignalEvolution:
       for col in range(self.mat.shape[1]):
         self.mat[row, col] = random.choices([0,1], weights=(1-density, density), k=1)[0]
 
-  def energy_function(self, matrix, gamma):
+  def energy_function(self, matrix, lam):
     # Calculate entropy of speaker distribution
     sig_prob = matrix.sum(axis=0) / np.sum(matrix) # P(S)
     sig_entropy = np.sum(entropy(sig_prob)) / np.log(np.size(sig_prob)) # Hnorm(S)
 
-    # Calculate conditional entropy of references over speaker distribution ## Edit: transferred to conditional_entropy()
-
-    # r_cond_sig_prob = matrix / matrix.sum(axis=0) # P(r(=1:4) | S)
-    # r_cond_sig_prob[np.isnan(r_cond_sig_prob)] = 1 / matrix.shape[0] # If a ref has no signal
-
-    # r_cond_sig_entropy = entropy(r_cond_sig_prob) / np.log(matrix.shape[0]) # Hnorm(r | S)
-    # r_cond_sig_entropy = np.round(r_cond_sig_entropy, 4)
-
-    # ref_cond_sig_entropy = np.sum(r_cond_sig_entropy.sum(axis=0) * sig_prob) # Hnorm(R | S)
-
+    # Calculate conditional entropy of references over speaker distribution
     ref_cond_sig_entropy = np.sum(conditional_entropy(matrix))
 
     # Calculate cost
-    cost = (gamma * ref_cond_sig_entropy) + ((1-gamma) * sig_entropy)
+    cost = (lam * ref_cond_sig_entropy) + ((1-lam) * sig_entropy)
 
     return cost, ref_cond_sig_entropy, sig_entropy
 
-  def run_to_equilibrium(self, prob, gamma, stop, print_output=False):
+  def run_to_equilibrium(self, prob, lam, stop, print_output=False):
     counter = 0
     while(counter < stop):
       trans_mat = np.zeros((self.size, self.size))
       for row in range(trans_mat.shape[0]):
         for col in range(trans_mat.shape[1]):
-          trans_mat[row, col] = random.choices([0,1], weights=(1-prob, prob), k=1)[0]
+          trans_mat[row, col] = random.choices([0,1], weights=(1-prob, prob), k=1)[0] 
 
       new_mat = abs(self.mat - trans_mat)
 
       if 0 not in new_mat.mean(axis=1): # Disallow signless referents
-        old = self.energy_function(self.mat, gamma)
-        new = self.energy_function(new_mat, gamma)
+        old = self.energy_function(self.mat, lam)
+        new = self.energy_function(new_mat, lam)
 
         if(new[0] < old[0]):
           self.mat = new_mat
@@ -104,29 +93,20 @@ class JointSpeakerAlignment:
         for s2 in range(self.mat.shape[2]):
           self.mat[ref,s1, s2] = random.choices([0,1], weights=(1-density, density), k=1)[0]
 
-  def energy_function(self, matrix, gamma):
+  def energy_function(self, matrix, lam):
     # Calculate joint entropy between speaker distributions
     joint_prob = matrix.sum(axis=0) / np.sum(matrix) # P(S1, S2)
     joint_entropy = np.sum(entropy(joint_prob)) / np.log(np.size(joint_prob)) # Hnorm(S1, S2)
 
-    # Calculate conditional entropy of references over joint speaker distribution ## Edit: transferred to conditional_entropy()
-
-    # r_cond_joint_prob = matrix / matrix.sum(axis=0) # P(r(=1:4) | S1, S2)
-    # r_cond_joint_prob[np.isnan(r_cond_joint_prob)] = 1 / matrix.shape[0] # If a ref has no signal
-
-    # r_cond_joint_entropy = entropy(r_cond_joint_prob) / np.log(matrix.shape[0]) # Hnorm(r | S1, S2)
-    # r_cond_joint_entropy = np.round(r_cond_joint_entropy, 4)
-
-    # ref_cond_joint_entropy = np.sum(r_cond_joint_entropy.sum(axis=0) * joint_prob) # Hnorm(R | S1, S2)
-
+    # Calculate conditional entropy of references over joint speaker distribution
     ref_cond_joint_entropy = np.sum(conditional_entropy(matrix))
 
     # Calculate cost
-    cost = (gamma * ref_cond_joint_entropy) + ((1-gamma) * joint_entropy)
+    cost = (lam * ref_cond_joint_entropy) + ((1-lam) * joint_entropy)
 
     return cost, ref_cond_joint_entropy, joint_entropy
 
-  def run_to_equilibrium(self, prob, gamma, stop, print_output=False):
+  def run_to_equilibrium(self, prob, lam, stop, print_output=False):
     counter = 0
     while(counter < stop):
       trans_mat = np.zeros((self.size, self.size, self.size))
@@ -137,8 +117,8 @@ class JointSpeakerAlignment:
 
       new_mat = abs(self.mat - trans_mat)
 
-      old = self.energy_function(self.mat, gamma)
-      new = self.energy_function(new_mat, gamma)
+      old = self.energy_function(self.mat, lam)
+      new = self.energy_function(new_mat, lam)
 
       if(new[0] < old[0]):
         self.mat = new_mat
