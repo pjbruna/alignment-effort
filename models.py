@@ -167,16 +167,22 @@ class JointSpeakerAlignment:
         s1 = self.mat.mean(axis=1)
         s2 = self.mat.mean(axis=2)
 
-        jsd_values = []
-        for i in range(self.mat.shape[0]):
-          s1_prob = s1[i] / np.sum(s1[i])
-          s2_prob = s2[i] / np.sum(s2[i])
+        s1_prob = s1.sum(axis=0) / np.sum(s1.sum(axis=0))
+        s2_prob = s2.sum(axis=0) / np.sum(s2.sum(axis=0))
 
-          value = jsd(s1_prob, s2_prob)
-          jsd_values.append(value)
-        avg_jsd = np.mean(jsd_values)
+        value = jsd(s1_prob, s2_prob)
+        jsd_over_time.append(value)
 
-        if(print_output): print(f"JSD: {avg_jsd}")
-        jsd_over_time.append(avg_jsd)
+        # jsd_values = []
+        # for i in range(self.mat.shape[0]):
+        #   s1_prob = s1[i] / np.sum(s1[i])
+        #   s2_prob = s2[i] / np.sum(s2[i])
+# 
+        #   value = jsd(s1_prob, s2_prob)
+        #   jsd_values.append(value)
+        # avg_jsd = np.mean(jsd_values)
+# 
+        # if(print_output): print(f"JSD: {avg_jsd}")
+        # jsd_over_time.append(avg_jsd)
 
     return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time)
