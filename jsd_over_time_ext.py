@@ -46,8 +46,8 @@ for i, (metric, ylabel) in enumerate(zip([cost_over_time, cond_entropy_over_time
 axs[0].set_title('Minimizing joint cost function')
 
 plt.tight_layout()
-# plt.show()
+plt.show()
 
-plt.savefig("figures/ext_over_time_5_runs_joint_cost.png")
+# plt.savefig("figures/ext_over_time_5_runs_joint_cost.png")
 plt.clf()
 
