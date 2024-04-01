@@ -106,23 +106,34 @@ class JointSpeakerAlignment:
   def energy_function(self, matrix, lam):
     # Calculate joint entropy between speaker distributions
 
-    # Method 1: Joint speaker entropy
+    # Method 1: Joint speaker cost function
+    ## Joint entropy
     joint_prob = matrix.sum(axis=0) / np.sum(matrix) # P(S1, S2)
     joint_entropy = np.sum(entropy(joint_prob)) / np.log(np.size(joint_prob)) # Hnorm(S1, S2)
 
-    # Method 2: Avg S1 and S2 entropy
+    ## Calculate conditional entropy of references over joint speaker distribution
+    ref_cond_joint_entropy = np.sum(conditional_entropy(matrix))
+
+    # # Method 2: Individualized cost function
+    # ## Avg signal entropy
     # s1 = matrix.mean(axis=1)
     # s1_prob = s1.sum(axis=0) / np.sum(s1) # P(S)
     # s1_entropy = np.sum(entropy(s1_prob)) / np.log(np.size(s1_prob)) # Hnorm(S1)
-
+ # 
     # s2 = matrix.mean(axis=2)
     # s2_prob = s2.sum(axis=0) / np.sum(s2) # P(S)
     # s2_entropy = np.sum(entropy(s2_prob)) / np.log(np.size(s2_prob)) # Hnorm(S2)
-
+# 
     # joint_entropy = np.mean([s1_entropy, s2_entropy])
-
-    # Calculate conditional entropy of references over joint speaker distribution
-    ref_cond_joint_entropy = np.sum(conditional_entropy(matrix))
+# 
+    # ## Avg conditional entropy
+    # rs1 = matrix.mean(axis=1)
+    # rs2 = matrix.mean(axis=2)
+# 
+    # rs1_cond_entropy = np.sum(conditional_entropy(rs1))
+    # rs2_cond_entropy = np.sum(conditional_entropy(rs2))
+# 
+    # ref_cond_joint_entropy = np.mean([rs1_cond_entropy, rs2_cond_entropy])
 
     # Calculate cost
     cost = (lam * ref_cond_joint_entropy) + ((1-lam) * joint_entropy)
@@ -164,8 +175,119 @@ class JointSpeakerAlignment:
           signal_entropy_over_time.append(old[2])
 
         # Calculate JSD
-        s1 = self.mat.mean(axis=1)
-        s2 = self.mat.mean(axis=2)
+        s1 = self.mat.mean(axis=2)
+        s2 = self.mat.mean(axis=1)
+
+        s1_prob = s1.sum(axis=0) / np.sum(s1.sum(axis=0))
+        s2_prob = s2.sum(axis=0) / np.sum(s2.sum(axis=0))
+
+        value = jsd(s1_prob, s2_prob)
+        jsd_over_time.append(value)
+
+        # jsd_values = []
+        # for i in range(self.mat.shape[0]):
+        #   s1_prob = s1[i] / np.sum(s1[i])
+        #   s2_prob = s2[i] / np.sum(s2[i])
+# 
+        #   value = jsd(s1_prob, s2_prob)
+        #   jsd_values.append(value)
+        # avg_jsd = np.mean(jsd_values)
+# 
+        # if(print_output): print(f"JSD: {avg_jsd}")
+        # jsd_over_time.append(avg_jsd)
+
+    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time)
+  
+
+### TESSERACT - evolve joint speaker distribution w.r.t. *individual* referent dimensions (R1, R2, S1, S2) ###
+
+class ReferentialAlignment:
+  def __init__(self, signal, referent, density):
+    self.signal = signal
+    self.referent = referent
+    self.mat = np.zeros((self.referent, self.referent, self.signal, self.signal))
+    for r1 in range(self.mat.shape[0]):
+      for r2 in range(self.mat.shape[1]):
+        for s1 in range(self.mat.shape[2]):
+          for s2 in range(self.mat.shape[3]):
+            self.mat[r1, r2, s1, s2] = random.choices([0,1], weights=(1-density, density), k=1)[0]
+
+  def energy_function(self, matrix, lam):
+    # Method 1: Joint speaker cost function
+    ## Calculate joint entropy between speaker distributions
+    joint_prob = matrix.sum(axis=0) / np.sum(matrix) # P(S1, S2)
+    joint_entropy = np.sum(entropy(joint_prob)) / np.log(np.size(joint_prob)) # Hnorm(S1, S2)
+
+    ## Calculate conditional entropy of references over joint speaker distribution
+    ref_cond_joint_entropy = np.sum(conditional_entropy(matrix))
+
+    # # Method 2: Individualized cost function
+    # ## Avg signal entropy
+    # s1 = matrix.mean(axis=1)
+    # s1_prob = s1.sum(axis=0) / np.sum(s1) # P(S)
+    # s1_entropy = np.sum(entropy(s1_prob)) / np.log(np.size(s1_prob)) # Hnorm(S1)
+ # 
+    # s2 = matrix.mean(axis=2)
+    # s2_prob = s2.sum(axis=0) / np.sum(s2) # P(S)
+    # s2_entropy = np.sum(entropy(s2_prob)) / np.log(np.size(s2_prob)) # Hnorm(S2)
+    # 
+    # joint_entropy = np.mean([s1_entropy, s2_entropy])
+# 
+    # ## Avg conditional entropy
+    # rs1 = matrix.mean(axis=1)
+    # rs2 = matrix.mean(axis=2)
+# 
+    # rs1_cond_entropy = np.sum(conditional_entropy(rs1))
+    # rs2_cond_entropy = np.sum(conditional_entropy(rs2))
+# 
+    # ref_cond_joint_entropy = np.mean([rs1_cond_entropy, rs2_cond_entropy])
+
+    # Calculate cost
+    cost = (lam * ref_cond_joint_entropy) + ((1-lam) * joint_entropy)
+
+    return cost, ref_cond_joint_entropy, joint_entropy
+
+  def run_to_equilibrium(self, prob, lam, stop, print_output=False):
+    cost_over_time = []
+    cond_entropy_over_time = []
+    signal_entropy_over_time = []
+    jsd_over_time = []
+
+    counter = 0
+    while(counter < stop):
+      trans_mat = np.zeros((self.referent, self.referent, self.signal, self.signal))
+      for r1 in range(trans_mat.shape[0]):
+        for r2 in range(trans_mat.shape[1]):
+          for s1 in range(trans_mat.shape[2]):
+            for s2 in range(trans_mat.shape[3]):
+              trans_mat[r1, r2, s1, s2] = random.choices([0,1], weights=(1-prob, prob), k=1)[0]
+
+      new_mat = abs(self.mat - trans_mat)
+
+      if (0 not in new_mat.mean(axis=0).mean(axis=1).mean(axis=1)) & (0 not in new_mat.mean(axis=1).mean(axis=1).mean(axis=1)): # Disallow signless referents
+        old_s1 = self.energy_function(self.mat.mean(axis=1), lam) # Avg over S2 referent dimension
+        old_s2 = self.energy_function(self.mat.mean(axis=0), lam) # mutatis mutandis...
+        new_s1 = self.energy_function(new_mat.mean(axis=1), lam)
+        new_s2 = self.energy_function(new_mat.mean(axis=0), lam)
+
+        old_cost = np.mean([old_s1[0], old_s2[0]])
+        new_cost = np.mean([new_s1[0], new_s2[0]])
+
+        if(new_cost < old_cost):
+          self.mat = new_mat
+          counter = 0
+          cost_over_time.append([new_s1[0], new_s2[0]])
+          cond_entropy_over_time.append([new_s1[1], new_s2[1]])
+          signal_entropy_over_time.append([new_s1[2], new_s2[2]])
+        else:
+          counter += 1
+          cost_over_time.append([old_s1[0], old_s2[0]])
+          cond_entropy_over_time.append([old_s1[1], old_s2[1]])
+          signal_entropy_over_time.append([old_s1[2], old_s2[2]])
+
+        # Calculate JSD
+        s1 = self.mat.mean(axis=1).mean(axis=2)
+        s2 = self.mat.mean(axis=0).mean(axis=1)
 
         s1_prob = s1.sum(axis=0) / np.sum(s1.sum(axis=0))
         s2_prob = s2.sum(axis=0) / np.sum(s2.sum(axis=0))

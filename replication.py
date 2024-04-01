@@ -45,5 +45,7 @@ axs[1].plot(lambda_values, mi, '.-')
 axs[1].set_xlabel("Lambda")
 axs[1].set_ylabel("MI")
 
-plt.savefig("figures/rep_lexicon_and_MI.png")
+plt.show()
+
+# plt.savefig("figures/rep_lexicon_and_MI.png")
 plt.clf()
