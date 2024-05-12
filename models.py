@@ -30,7 +30,7 @@ def mutual_information(matrix):
   sig_entropy = np.sum(entropy(sig_prob)) / np.log(np.size(sig_prob))
   cond_entropy = np.sum(conditional_entropy(matrix.T))
 
-  return (sig_entropy - cond_entropy)  #/ sig_entropy
+  return (sig_entropy - cond_entropy)
 
 
 ### REPLICATION - Ferrer i Cancho & Sole (2002) ###
@@ -145,6 +145,9 @@ class JointSpeakerAlignment:
     cond_entropy_over_time = []
     signal_entropy_over_time = []
     jsd_over_time = []
+    combined_entropy_over_time = []
+
+    flips = []
 
     counter = 0
     while(counter < stop):
@@ -153,6 +156,8 @@ class JointSpeakerAlignment:
         for s1 in range(trans_mat.shape[1]):
           for s2 in range(trans_mat.shape[2]):
             trans_mat[ref, s1, s2] = random.choices([0,1], weights=(1-prob, prob), k=1)[0]
+
+      flips.append(np.sum(trans_mat))
 
       new_mat = abs(self.mat - trans_mat)
 
@@ -184,22 +189,17 @@ class JointSpeakerAlignment:
         value = jsd(s1_prob, s2_prob)
         jsd_over_time.append(value)
 
-        # jsd_values = []
-        # for i in range(self.mat.shape[0]):
-        #   s1_prob = s1[i] / np.sum(s1[i])
-        #   s2_prob = s2[i] / np.sum(s2[i])
-# 
-        #   value = jsd(s1_prob, s2_prob)
-        #   jsd_values.append(value)
-        # avg_jsd = np.mean(jsd_values)
-# 
-        # if(print_output): print(f"JSD: {avg_jsd}")
-        # jsd_over_time.append(avg_jsd)
+        # Calculate H(S1+S2)
+        s1s2_prob = (np.array(s1_prob) + np.array(s2_prob)) / 2
+        combined_entropy = np.sum(entropy(s1s2_prob)) / np.log(np.size(s1s2_prob))
+        combined_entropy_over_time.append(combined_entropy)
 
-    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time)
+    print(np.mean(flips))
+
+    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time, combined_entropy_over_time)
   
 
-### TESSERACT - evolve joint speaker distribution w.r.t. *individual* referent dimensions (R1, R2, S1, S2) ###
+### 4D - evolve joint speaker distribution w.r.t. *individual* referent dimensions (R1, R2, S1, S2) ###
 
 class ReferentialAlignment:
   def __init__(self, signal, referent, density):
@@ -247,11 +247,15 @@ class ReferentialAlignment:
 
     return cost, ref_cond_joint_entropy, joint_entropy
 
-  def run_to_equilibrium(self, prob, lam, stop, print_output=False):
+  def run_to_equilibrium(self, prob, lam, stop):
     cost_over_time = []
     cond_entropy_over_time = []
     signal_entropy_over_time = []
     jsd_over_time = []
+    ref_align_mi = []
+    combined_entropy_over_time = []
+
+    flips = []
 
     counter = 0
     while(counter < stop):
@@ -262,9 +266,11 @@ class ReferentialAlignment:
             for s2 in range(trans_mat.shape[3]):
               trans_mat[r1, r2, s1, s2] = random.choices([0,1], weights=(1-prob, prob), k=1)[0]
 
+      flips.append(np.sum(trans_mat))
+
       new_mat = abs(self.mat - trans_mat)
 
-      if (0 not in new_mat.mean(axis=0).mean(axis=1).mean(axis=1)) & (0 not in new_mat.mean(axis=1).mean(axis=1).mean(axis=1)): # Disallow signless referents
+      if ((0 not in new_mat.mean(axis=0).mean(axis=1).mean(axis=1)) and (0 not in new_mat.mean(axis=1).mean(axis=1).mean(axis=1))): # Disallow signless referents
         old_s1 = self.energy_function(self.mat.mean(axis=1), lam) # Avg over S2 referent dimension
         old_s2 = self.energy_function(self.mat.mean(axis=0), lam) # mutatis mutandis...
         new_s1 = self.energy_function(new_mat.mean(axis=1), lam)
@@ -285,7 +291,7 @@ class ReferentialAlignment:
           cond_entropy_over_time.append([old_s1[1], old_s2[1]])
           signal_entropy_over_time.append([old_s1[2], old_s2[2]])
 
-        # Calculate JSD
+        # Calculate JSD (between speakers)
         s1 = self.mat.mean(axis=1).mean(axis=2)
         s2 = self.mat.mean(axis=0).mean(axis=1)
 
@@ -295,16 +301,14 @@ class ReferentialAlignment:
         value = jsd(s1_prob, s2_prob)
         jsd_over_time.append(value)
 
-        # jsd_values = []
-        # for i in range(self.mat.shape[0]):
-        #   s1_prob = s1[i] / np.sum(s1[i])
-        #   s2_prob = s2[i] / np.sum(s2[i])
-# 
-        #   value = jsd(s1_prob, s2_prob)
-        #   jsd_values.append(value)
-        # avg_jsd = np.mean(jsd_values)
-# 
-        # if(print_output): print(f"JSD: {avg_jsd}")
-        # jsd_over_time.append(avg_jsd)
+        # Measure alignment of referent dimensions
+        ref_matrix = self.mat.mean(axis=3).mean(axis=2)
+        ref_align_mi.append([mutual_information(ref_matrix)])
 
-    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time)
+        # Calculate H(S1+S2)
+        s1s2_prob = (np.array(s1_prob) + np.array(s2_prob)) / 2
+        combined_entropy = np.sum(entropy(s1s2_prob)) / np.log(np.size(s1s2_prob))
+        combined_entropy_over_time.append(combined_entropy)  
+
+    print(np.mean(flips))
+    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time, ref_align_mi, combined_entropy_over_time)

@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 from models import *
 
 n = 4
-m = n
-r = 0.5 # SDIC?
-v = 2 / comb(m**2, 2)
-t = 2 * ((m**2)**2)
-lambda_values = np.linspace(0, 1, 21)
+m = n**2
+r = 0.5 # SDIC? 
+v = 2 / comb(63, 2)
+t = 2 * (m**2)
+lambda_values = np.linspace(0.4, 1, 13) #(0, 1, 21)
 
 ### Run model ###
 count = 0
@@ -20,19 +20,34 @@ for l in lambda_values:
   mod = ReferentialAlignment(signal=n, referent=m, density=r)
   result = mod.run_to_equilibrium(prob=v, lam=l, stop=t)
 
+  s1_result = result[0].mean(axis=1)
+  s2_result = result[0].mean(axis=0)
+
   # Effective lexicon size:
-  lexicon = result[0].sum(axis=0).sum(axis=0)
-  lexicon[lexicon > 0] = 1
-  lex.append(np.sum(lexicon)/n**2)
+  s1_lexicon = s1_result.sum(axis=0)
+  s1_lexicon[s1_lexicon > 0] = 1
 
-  # Mutual information: I(S1, S2, R) = Hnorm(S1, S2) - Hnrom(S1, S2 | R)
-  s1 = result[0].mean(axis=1)
-  s2 = result[0].mean(axis=0)
+  s2_lexicon = s2_result.sum(axis=0)
+  s2_lexicon[s2_lexicon > 0] = 1
 
-  s1_mi = mutual_information(s1)
-  s2_mi = mutual_information(s2)
+  lex.append([(np.sum(s1_lexicon)/n**2), (np.sum(s2_lexicon)/n**2)])
 
-  mi.append(np.mean([s1_mi, s2_mi]))
+  # Mutual information: I((S1, S2), R) = Hnorm(S1, S2) - Hnrom(S1, S2 | R)
+  mi.append([mutual_information(s1_result), mutual_information(s2_result)])
+
+  # # Effective lexicon size:
+  # lexicon = result[0].sum(axis=0).sum(axis=0)
+  # lexicon[lexicon > 0] = 1
+  # lex.append(np.sum(lexicon)/n**2)
+# 
+  # # Mutual information: I(S1, S2, R1, R2) = Hnorm(S1, S2) - Hnrom(S1, S2 | R1, R2)
+  # s1 = result[0].mean(axis=1)
+  # s2 = result[0].mean(axis=0)
+# 
+  # s1_mi = mutual_information(s1)
+  # s2_mi = mutual_information(s2)
+# 
+  # mi.append(np.mean([s1_mi, s2_mi]))
 
   count += 1
 
@@ -41,13 +56,16 @@ for l in lambda_values:
 
 fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
-axs[0].plot(lambda_values, lex, '.-')
-axs[0].set_xlabel("Lambda")
-axs[0].set_ylabel("Effective Lexicon Size")
+for i, (metric, ylabel) in enumerate(zip([lex, mi], ['Effective Lexicon Size', 'MI'])):
+  s1 = [item[0] for item in metric]
+  s2 = [item[1] for item in metric]
 
-axs[1].plot(lambda_values, mi, '.-')
-axs[1].set_xlabel("Lambda")
-axs[1].set_ylabel("MI")
+  axs[i].plot(lambda_values, s1)
+  axs[i].plot(lambda_values, s2, linestyle="dashed")
+  axs[i].set_xlabel("Lambda")
+  axs[i].set_ylabel(ylabel)
 
-plt.savefig("figures/4d_lexicon_and_MI.png")
+plt.show()
+
+# plt.savefig("figures/4d_lexicon_and_MI.png")
 plt.clf()
