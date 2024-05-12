@@ -1,0 +1,178 @@
+---
+title: "Corpus Preprocessing"
+author: "Polyphony J. Bruna"
+date: "2024-05-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(tidyverse)
+```
+
+# Load Transcripts
+
+```{r}
+tylen_transcripts <- data.frame()
+
+for(i in 1:26){
+  if(i %in% c(9, 13, 15, 23)){
+    print(paste0("Pair ", i, ": data missing or abnormal")) # 13 has three speakers?
+  } else {
+    pair <- read_csv(paste0("data/Tylen_2023/Transcripts/Monster experiment - Pair", i, ".csv"), show_col_types = F) %>%
+      mutate(Session = Session,
+             Interlocutor = factor(Interlocutor),
+             Pair = i)
+    tylen_transcripts <- rbind(tylen_transcripts, pair)
+  }
+}
+```
+
+# Clean transcriptions for processing (sesssion 1 and 2)
+
+```{r}
+tylen_transcripts_filtered <- tylen_transcripts %>%
+  filter(Session == 1 | Session == 2) %>% # Filter to sessions 1 and 2
+  mutate(Transcription = gsub("'","", Transcription),
+         Transcription = gsub('[[:punct:] ]+',' ', Transcription),
+         Transcription = tolower(Transcription),
+         Transcription = gsub('1', 'en', Transcription),
+         Transcription = gsub('2', 'to', Transcription),
+         Transcription = gsub('3', 'tre', Transcription),
+         Transcription = gsub('4', 'fire', Transcription)) 
+```
+
+```{r}
+# Locate miscoded rows
+
+print(which(is.na(tylen_transcripts_filtered$`Joint decision`)))
+
+for(i in which(is.na(tylen_transcripts_filtered$`Joint decision`))){
+  print(tylen_transcripts_filtered[i,])
+}
+```
+
+```{r}
+# Correct miscoded rows
+
+tylen_transcripts_filtered$Transcription[2214] <- "hov nå den skulle jeg bare have skudt"
+tylen_transcripts_filtered$`Joint decision`[2214] <- 18
+
+tylen_transcripts_filtered$`Joint decision`[2237] <- 23
+
+tylen_transcripts_filtered$Transcription[2286] <- "jo"
+tylen_transcripts_filtered$`Joint decision`[2286] <- 33
+
+tylen_transcripts_filtered$`Joint decision`[5505] <- 31
+
+tylen_transcripts_filtered$`Joint decision`[5524] <- 34
+
+# Confirm changes
+
+print(which(is.na(tylen_transcripts_filtered$`Joint decision`)))
+
+for(i in c(2214, 2237, 2286, 5505, 5524)){
+  print(tylen_transcripts_filtered[i,])
+}
+```
+
+```{r}
+# Remove rows with no transcription
+
+pre <- tylen_transcripts_filtered %>% group_by(`Joint decision`) %>% count() %>% select(`Joint decision`)
+
+tylen_transcripts_filtered <- tylen_transcripts_filtered %>%
+  filter(Transcription != " ") # 16 rows removed
+  
+post <- tylen_transcripts_filtered %>% group_by(`Joint decision`) %>% count() %>% select(`Joint decision`)
+
+# Check that no trials were lost
+
+identical(pre, post)
+```
+
+```{r}
+tylen_transcripts_filtered <- tylen_transcripts_filtered %>%
+  mutate(trial_group = ceiling(`Joint decision` / 8))
+```
+
+# Clean and append session 3 data
+
+```{r}
+session_3 <- tylen_transcripts %>%
+  filter(Session == 3) %>%
+  mutate(Transcription = gsub("'","", Transcription),
+         Transcription = gsub('[[:punct:] ]+',' ', Transcription),
+         Transcription = tolower(Transcription),
+         Transcription = gsub('1', 'en', Transcription),
+         Transcription = gsub('2', 'to', Transcription),
+         Transcription = gsub('3', 'tre', Transcription),
+         Transcription = gsub('4', 'fire', Transcription)) 
+
+# Locate miscoded rows
+
+print(which(is.na(session_3$`Joint decision`)))
+
+for(i in which(is.na(session_3$`Joint decision`))){
+  print(session_3[i,])
+}
+
+# Correct miscoded rows
+
+session_3$Transcription[483] <- "fordi blå hvis de er helt sure så er det en toer og hvis de er alt mindre end det så er det en etter"
+session_3$`Joint decision`[483] <- 16
+
+session_3 <- session_3[-2056,]
+
+# Confirm changes
+
+print(which(is.na(session_3$`Joint decision`)))
+
+for(i in c(483, 2056)){
+  print(session_3[i,])
+}
+
+# Remove rows with no transcription
+
+pre <- session_3 %>% group_by(`Joint decision`) %>% count() %>% select(`Joint decision`)
+
+session_3 <- session_3 %>%
+  filter(Transcription != " ") # 2 rows removed
+  
+post <- session_3 %>% group_by(`Joint decision`) %>% count() %>% select(`Joint decision`)
+
+# Check that no trials were lost
+
+identical(pre, post)
+
+# Remove 12+ trial groups
+
+session_3 <- session_3 %>%
+  mutate(trial_group = ceiling(`Joint decision` / 8)) %>%
+  filter(trial_group < 12)
+
+# Append
+
+tylen_transcripts_filtered <- rbind(tylen_transcripts_filtered, session_3)
+```
+
+```{r}
+# Subset data and add trial grouping for later analyses
+
+tylen_transcripts_filtered <- tylen_transcripts_filtered %>%
+  select(Pair, Session, Interlocutor, `Joint decision`, Transcription, trial_group) %>%
+  filter(Pair != 1) # remove pair 1 (in order to include session 3 data)
+
+tylen_transcripts_filtered
+```
+
+# Save data
+
+```{r}
+write_csv(tylen_transcripts_filtered, file = "data/tylen_data_processed.csv")
+```
+

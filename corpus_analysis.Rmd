@@ -1,0 +1,544 @@
+---
+title: "Corpus Analysis"
+author: "Polyphony J. Bruna"
+date: "2024-05-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(tidyverse)
+```
+
+# Performance
+```{r}
+# Load data
+## Haven't filtered based on survey
+
+tylen_data <- read_csv("data/Tylen_2023/AlienData.txt") %>%
+  filter(condition == 1,
+         test == 0) %>% # Filter out test
+  mutate(session = factor(session))
+
+tylen_data
+```
+
+```{r}
+tylen_performance <- tylen_data %>%
+  group_by(subject, session) %>%
+  mutate(accuracy = mean(correct)) %>%
+  mutate(mean_RT = mean(RT)) %>%
+  do(tail(., 1)) %>%
+  select(subject, session, cumulative, accuracy, mean_RT)
+```
+
+```{r}
+ggplot(tylen_performance, aes(x = cumulative/100, fill = session)) +
+  facet_wrap(~session, ncol = 1) +
+  geom_histogram(color = "white", position = "dodge") +
+  geom_boxplot(alpha = 0.5) +
+  labs(x = "Points", y = "Count", fill = "Difficulty") +
+  theme_bw()
+```
+
+```{r}
+ggplot(tylen_performance, aes(x = accuracy*100, fill = session)) +
+  facet_wrap(~session, ncol = 1) +
+  geom_histogram(color = "white", position = "dodge") +
+  geom_boxplot(alpha = 0.5) +
+  labs(x = "Accuracy (% correct)", y = "Count", fill = "Difficulty") +
+  theme_bw()
+```
+
+```{r}
+ggplot(tylen_performance, aes(x = mean_RT, fill = session)) +
+  facet_wrap(~session, ncol = 1) +
+  geom_histogram(color = "white", position = "dodge") +
+  geom_boxplot(alpha = 0.5) +
+  labs(x = "Mean RT", y = "Count", fill="Difficulty") +
+  theme_bw()
+```
+
+## Over time
+```{r}
+accuracy <- tylen_data %>%
+  mutate(trial_group = ceiling(trial / 8)) %>%
+  group_by(session, subject, trial_group) %>%
+  summarize(accuracy = mean(correct))
+
+avg_accuracy <- accuracy %>%
+  group_by(session, trial_group) %>%
+  summarize(m = mean(accuracy), se = sd(accuracy)/sqrt(n()))
+```
+
+```{r}
+ggplot(avg_accuracy, aes(x = trial_group, y = m, fill = session, color = session)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(x = "Time (1 unit = 8 trials)", y = "Accuracy (avg. over pairs)", fill = "Difficulty", color = "Difficulty") +
+  scale_x_continuous(n.breaks = 12) +
+  scale_y_continuous(limits = c(0.35,1)) +
+  theme_bw()
+
+# ggsave(file = "figures/corpus/accuracy_over_time.png")
+```
+
+# Transcripts
+
+```{r}
+tylen_transcripts_filtered <- read_csv("data/tylen_data_processed.csv") %>%
+  mutate(Session = as.factor(Session))
+```
+
+## Utterance length over time
+
+```{r}
+# Add total word count (per utterance)
+
+for(n in (1:nrow(tylen_transcripts_filtered))){
+  list <- str_split(tylen_transcripts_filtered$Transcription[n], " ")[[1]]
+  list <- list[list != ""]
+  
+  tylen_transcripts_filtered$total_words[n] <- length(list)
+}
+```
+
+```{r}
+speaker_diff <- tylen_transcripts_filtered %>%
+  group_by(Pair, Session, Interlocutor, `Joint decision`) %>%
+  summarize(Avg = mean(total_words)) %>%
+  pivot_wider(names_from = Interlocutor, values_from = Avg) %>%
+  mutate(Diff = abs(A - B))
+
+ggplot(speaker_diff, aes(x = Diff, fill = Session)) +
+  facet_wrap(~Session, ncol = 1) +
+  geom_histogram(color = "white") +
+  labs(x = "Difference in average words spoken by each speaker in each trial", y = "Count", fill = "Difficulty") +
+  theme_bw()
+```
+
+```{r}
+total_words <- tylen_transcripts_filtered %>%
+  group_by(Pair, Session, trial_group, Interlocutor) %>%
+  summarize(total_words_per_speaker = sum(total_words))
+
+avg_total_words <- total_words %>% 
+  group_by(Session, trial_group) %>% 
+  summarize(m = mean(total_words_per_speaker), se = sd(total_words_per_speaker)/sqrt(n()))
+
+ggplot(avg_total_words, aes(x = trial_group, y = m, fill = Session, color = Session)) +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  geom_line() +
+  labs(x = "Time (1 unit = 8 trials)", y = "# Words Spoken (avg. over speakers)", fill = "Difficulty", color = "Difficulty") +
+  scale_x_continuous(n.breaks = 12) +
+  theme_bw()
+
+# ggsave(file = "figures/corpus/words_spoken.png")
+```
+
+## Entropy
+
+```{r}
+entropies <- data.frame(pair = c(), session = c(), trial_group = c(), entropy = c())
+for(i in unique(tylen_transcripts_filtered$Pair)){
+  for(j in c("1", "2", "3")){
+    trial_count <- tylen_transcripts_filtered %>%
+      filter(Session == j) %>%
+      select(trial_group) %>%
+      max()
+    
+    for(k in c(1:trial_count)){
+      data <- tylen_transcripts_filtered %>%
+        filter(Pair == i,
+               Session == j,
+               trial_group == k)
+      
+      tokens <- c()
+      for(n in (1:nrow(data))){
+        list <- str_split(data$Transcription[n], " ")[[1]]
+        list <- list[list != ""]
+        
+        tokens <- append(tokens, list)
+      }
+      
+      entropy <- data.frame(words = tokens) %>%
+        group_by(words) %>%
+        count() %>%
+        ungroup() %>%
+        summarize(entropy = sum((n/length(tokens)) * -log(n/length(tokens))),
+                  pair = i,
+                  session = j,
+                  trial_group = k)
+      
+      entropies <- rbind(entropies, entropy)
+    }
+  }
+}
+
+avg_entropies <- entropies %>%
+  group_by(session, trial_group) %>%
+  summarize(m = mean(entropy), se = sd(entropy)/sqrt(n()))
+```
+
+```{r}
+ggplot(avg_entropies, aes(x = trial_group, y = m, fill = session, color = session)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(x = "Time (1 unit = 8 trials)", y = "Entropy", fill = "Difficulty", color = "Difficulty") +
+  scale_x_continuous(n.breaks = 12) +
+  theme_bw()
+
+# ggsave(file = "figures/corpus/entropy.png")
+```
+
+### Is there an effect of entropy separate from length?
+
+```{r}
+n_entropies <- data.frame(pair = c(), session = c(), trial_group = c(), n_entropy = c())
+for(i in unique(tylen_transcripts_filtered$Pair)){
+  for(j in c("1", "2", "3")){
+    trial_count <- tylen_transcripts_filtered %>%
+      filter(Session == j) %>%
+      select(trial_group) %>%
+      max()
+    
+    for(k in c(1:trial_count)){
+      data <- tylen_transcripts_filtered %>%
+        filter(Pair == i,
+               Session == j,
+               trial_group == k)
+      
+      tokens <- c()
+      for(n in (1:nrow(data))){
+        list <- str_split(data$Transcription[n], " ")[[1]]
+        list <- list[list != ""]
+        
+        tokens <- append(tokens, list)
+      }
+      
+      n_entropy <- data.frame(words = tokens) %>%
+        group_by(words) %>%
+        count() %>%
+        ungroup() %>%
+        summarize(n_entropy = sum((n/length(tokens)) * -log(n/length(tokens)))/log(length(unique(tokens))),
+                  pair = i,
+                  session = j,
+                  trial_group = k)
+      
+      n_entropies <- rbind(n_entropies, n_entropy)
+    }
+  }
+}
+
+avg_n_entropies <- n_entropies %>%
+  group_by(session, trial_group) %>%
+  summarize(m = mean(n_entropy), se = sd(n_entropy)/sqrt(n()))
+```
+
+```{r}
+ggplot(avg_n_entropies %>% filter(session == "1"), aes(x = trial_group, y = m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(x = "Time (1 unit = 8 trials)", y = "Hn") +
+  scale_x_continuous(n.breaks = 12) +
+  theme_bw()
+
+# ggsave(file = "figures/corpus/normalized_entropy.png")
+```
+
+### Average individual entropy
+
+```{r}
+n_entropies_indiv <- data.frame(pair = c(), session = c(), trial_group = c(), interlocutor = c(), n_entropy = c())
+for(i in unique(tylen_transcripts_filtered$Pair)){
+  for(j in c("1", "2", "3")){
+    trial_count <- tylen_transcripts_filtered %>%
+      filter(Session == j) %>%
+      select(trial_group) %>%
+      max()
+    
+    for(k in c(1:trial_count)){
+      for(l in c("A", "B")){
+        data <- tylen_transcripts_filtered %>%
+          filter(Pair == i,
+                 Session == j,
+                 trial_group == k,
+                 Interlocutor == l)
+        
+        if(nrow(data) == 0){break} # Skip if interlocutor doesn't speak
+        
+        tokens <- c()
+        for(n in (1:nrow(data))){
+          list <- str_split(data$Transcription[n], " ")[[1]]
+          list <- list[list != ""]
+          
+          tokens <- append(tokens, list)
+        }
+        
+        if(length(unique(tokens)) == 1){ # If entropy is 0
+          n_entropy <- data.frame(n_entropy = 0, pair = i, session = j, trial_group = k, interlocutor = l)
+          n_entropies_indiv <- rbind(n_entropies_indiv, n_entropy)
+          
+          break
+        }
+        
+        n_entropy <- data.frame(words = tokens) %>%
+          group_by(words) %>%
+          count() %>%
+          ungroup() %>%
+          summarize(n_entropy = sum((n/length(tokens)) * -log(n/length(tokens)))/log(length(unique(tokens))),
+                    pair = i,
+                    session = j,
+                    trial_group = k,
+                    interlocutor = l)
+        
+        n_entropies_indiv <- rbind(n_entropies_indiv, n_entropy)
+      }
+    }
+  }
+}
+
+n_entropies_indiv <- n_entropies_indiv %>%
+  filter(n_entropy != 0) # Remove single outlier
+
+avg_n_entropies_indiv <- n_entropies_indiv %>%
+  group_by(session, trial_group) %>%
+  summarize(m = mean(n_entropy), se = sd(n_entropy)/sqrt(n()))
+```
+
+```{r}
+ggplot(avg_n_entropies_indiv, aes(x = trial_group, y = m, fill = session, color = session)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(x = "Time (1 unit = 8 trials)", y = "Hn (individual)", fill = "Difficulty", color = "Difficulty") +
+  scale_x_continuous(n.breaks = 12) +
+  theme_bw()
+
+# ggsave(file = "figures/corpus/normalized_entropy_by_speaker.png")
+```
+
+## Jensen-Shannon Divergence (JSD)
+```{r}
+# These functions take the word probability distributions of each speaker as arguments
+calculate.kld <- function(p, q){
+  p[p == 0] <- 1e-10 # Avoid log(0) = -Inf
+  q[q == 0] <- 1e-10 # Avoid division by zero
+  return(sum(p * log(p / q)))
+}
+
+calculate.jsd <- function(p, q){
+  m <- 0.5 * (p + q)
+  return(0.5 * (calculate.kld(p, m) + calculate.kld(q, m)))
+}
+```
+
+```{r}
+jsds <- data.frame(pair = c(), session = c(), trial_group = c(), jsd = c())
+for(i in unique(tylen_transcripts_filtered$Pair)){
+  for(j in c("1", "2", "3")){
+    trial_count <- tylen_transcripts_filtered %>%
+      filter(Session == j) %>%
+      select(trial_group) %>%
+      max()
+    
+    for(k in c(1:trial_count)){
+      data <- tylen_transcripts_filtered %>%
+        filter(Pair == i, Session == j, trial_group == k)
+      
+      word_count <- data.frame(word = c(), speaker = c())
+      for(n in 1:nrow(data)){
+        list <- str_split(data$Transcription[n], " ")[[1]]
+        list <- list[list != ""]
+        
+        temp_df <- data.frame(word = list, speaker = data$Interlocutor[n])
+        word_count <- rbind(word_count, temp_df)
+      }
+      
+      word_count <- word_count %>%
+        group_by(word, speaker) %>%
+        count() %>%
+        pivot_wider(names_from = speaker, values_from = n, values_fill = 0) %>%
+        ungroup()
+      
+      if(is.null(word_count$A)){word_count$A = 0}
+      if(is.null(word_count$B)){word_count$B = 0}
+     
+      prob_distr <- word_count %>%
+        mutate(A = A / sum(A), B = B / sum(B)) %>%
+        select(!word) %>%
+        replace(is.na(.), 0)
+      
+      jsd <- data.frame(jsd = calculate.jsd(as.vector(prob_distr$A), as.vector(prob_distr$B)),
+                        pair = i,
+                        session = j,
+                        trial_group = k)
+      
+      jsds <- rbind(jsds, jsd)
+    }
+  }
+}
+
+avg_jsd <- jsds %>%
+  group_by(session, trial_group) %>%
+  summarize(m = mean(jsd), se = sd(jsd)/sqrt(n()))
+```
+
+```{r}
+ggplot(avg_jsd, aes(x = trial_group, y = m, fill = session, color = session)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(x = "Time (1 unit = 8 trials)", y = "JSD", fill = "Difficulty", color = "Difficulty") +
+  scale_x_continuous(n.breaks = 12) +
+  theme_bw()
+
+# ggsave(file = "figures/corpus/JSD.png")
+```
+
+### Does JSD increase as a byproduct of length / entropy going down?
+
+```{r}
+ablate.entropy <- function(pair, session, trial_group){
+  data <- tylen_transcripts_filtered %>%
+    filter(Pair == pair, Session == session, trial_group == trial_group)
+        
+  word_count <- data.frame(word = c(), speaker = c())
+  for(n in 1:nrow(data)){
+    list <- str_split(data$Transcription[n], " ")[[1]]
+    list <- list[list != ""]
+    
+    temp_df <- data.frame(word = list, speaker = data$Interlocutor[n])
+    word_count <- rbind(word_count, temp_df)
+  }
+  
+  word_count <- word_count %>%
+    group_by(word, speaker) %>%
+    count() %>%
+    pivot_wider(names_from = speaker, values_from = n, values_fill = 0) %>%
+    ungroup()
+  
+  if(is.null(word_count$A)){print("Speaker A missing")}
+  if(is.null(word_count$B)){print("Speaker B missing")}
+  
+  iter <- nrow(word_count) - 1
+  values <- c()
+  for(i in 1:iter){
+    prob_distr <- word_count %>%
+      mutate(A = A / sum(A), B = B / sum(B)) %>%
+      select(!word) %>%
+      replace(is.na(.), 0)
+    
+    values[i] <- calculate.jsd(as.vector(prob_distr$A), as.vector(prob_distr$B))
+    
+    word_count <- word_count[-sample(1:nrow(word_count), 1),]
+  }
+  
+  return(values)
+}
+```
+
+```{r}
+simulations <- as.data.frame(t(replicate(20, ablate.entropy(2,1,1)))) %>%
+  mutate(run = c(1:20)) %>%
+  pivot_longer(cols = c(!run), names_to = "iter", values_to = "jsd") %>%
+  mutate(iter = as.numeric(gsub("V","", iter)),
+         remaining = rev(iter))
+
+avg <- simulations %>%
+  group_by(remaining) %>%
+  summarize(m = mean(jsd), se = sd(jsd)/sqrt(n()))
+
+ggplot(avg, aes(x = remaining, y = m)) +
+  geom_path(data = simulations, mapping = aes(x=remaining, y = jsd, group = run), alpha = 0.4, color = "darkgray") +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  scale_x_reverse() +
+  labs(x="Words remaining in mixed distribution", y="JSD") +
+  theme_bw()
+
+# ggsave(file = "figures/corpus/ablation_211.png")
+```
+
+```{r}
+simulations <- as.data.frame(t(replicate(20, ablate.entropy(2,2,1)))) %>%
+  mutate(run = c(1:20)) %>%
+  pivot_longer(cols = c(!run), names_to = "iter", values_to = "jsd") %>%
+  mutate(iter = as.numeric(gsub("V","", iter)),
+         remaining = rev(iter))
+
+avg <- simulations %>%
+  group_by(remaining) %>%
+  summarize(m = mean(jsd), se = sd(jsd)/sqrt(n()))
+
+ggplot(avg, aes(x = remaining, y = m)) +
+  geom_path(data = simulations, mapping = aes(x = remaining, y = jsd, group = run), alpha = 0.4, color = "darkgray") +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  scale_x_reverse() +
+  labs(x = "Words remaining in mixed distribution", y = "JSD") +
+  theme_bw()
+
+# ggsave(file = "figures/corpus/ablation_221.png")
+```
+
+```{r}
+simulations <- as.data.frame(t(replicate(20, ablate.entropy(2,3,1)))) %>%
+  mutate(run = c(1:20)) %>%
+  pivot_longer(cols = c(!run), names_to = "iter", values_to = "jsd") %>%
+  mutate(iter = as.numeric(gsub("V","", iter)),
+         remaining = rev(iter))
+
+avg <- simulations %>%
+  group_by(remaining) %>%
+  summarize(m = mean(jsd), se = sd(jsd)/sqrt(n()))
+
+ggplot(avg, aes(x = remaining, y = m)) +
+  geom_path(data = simulations, mapping = aes(x = remaining, y = jsd, group = run), alpha = 0.4, color = "darkgray") +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  scale_x_reverse() +
+  labs(x = "Words remaining in mixed distribution", y = "JSD") +
+  theme_bw()
+
+# ggsave(file = "figures/corpus/ablation_231.png")
+```
+
+## Figure
+
+```{r}
+library(patchwork)
+
+acc_p <- ggplot(avg_accuracy %>% filter(session == "1"), aes(x = trial_group, y = m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(x = "Time (1 unit = 8 trials)", y = "Accuracy") +
+  scale_x_continuous(n.breaks = 12) +
+  scale_y_continuous(limits = c(0.35,1)) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank())
+
+ent_p <- ggplot(avg_entropies %>% filter(session == "1"), aes(x = trial_group, y = m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(x = "Time (1 unit = 8 trials)", y = "H(S1+S2)") +
+  scale_x_continuous(n.breaks = 12) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        panel.grid = element_blank())
+
+jsd_p <- ggplot(avg_jsd %>% filter(session == "1"), aes(x = trial_group, y = m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(x = "Time (1 unit = 8 trials)", y = "JSD(S1,S2)") +
+  scale_x_continuous(n.breaks = 12) +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+acc_p / ent_p / jsd_p
+
+# ggsave(file = "figures/corpus/corpus_figures.png", height = 7)
+```
