@@ -10,7 +10,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-library(readr)
 library(tidyverse)
 ```
 
@@ -506,7 +505,7 @@ ggplot(avg, aes(x = remaining, y = m)) +
 # ggsave(file = "figures/corpus/ablation_231.png")
 ```
 
-## Figure
+## Figures
 
 ```{r}
 library(patchwork)
@@ -542,3 +541,140 @@ acc_p / ent_p / jsd_p
 
 # ggsave(file = "figures/corpus/corpus_figures.png", height = 7)
 ```
+
+```{r}
+acc_p <- ggplot(avg_accuracy, aes(x = trial_group, y = m, fill=session, color=session)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(title = "a)", x = "Time (1 unit = 8 trials)", y = "Accuracy", fill = "Session", color="Session") +
+  scale_x_continuous(n.breaks = 12) +
+  scale_y_continuous(limits = c(0.35,1)) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.title.x = element_blank())
+
+ent_p <- ggplot(avg_entropies, aes(x = trial_group, y = m, fill=session, color=session)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(title = "b)", x = "Time (1 unit = 8 trials)", y = "H(S1+S2)") +
+  scale_x_continuous(n.breaks = 12) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        legend.position = "none",
+        axis.title.x = element_blank())
+
+jsd_p <- ggplot(avg_jsd, aes(x = trial_group, y = m, fill=session, color=session)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(title = "c)", x = "Time (1 unit = 8 trials)", y = "JSD(S1,S2)") +
+  scale_x_continuous(n.breaks = 12) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        legend.position = "none")
+
+acc_p / ent_p / jsd_p
+
+# ggsave(file = "figures/corpus/corpus_figures_allsessions.png", height = 10, width = 7)
+```
+
+```{r}
+ggplot(avg_n_entropies, aes(x = trial_group, y = m, fill=session, color=session)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  labs(x = "Time (1 unit = 8 trials)", y = "Hn(S1+S2)", fill="Session", color="Session") +
+  scale_x_continuous(n.breaks = 12) +
+  theme_bw() + 
+  theme(panel.grid = element_blank())
+
+# ggsave(file = "figures/corpus/normalized_entropy.png")
+```
+
+```{r}
+simulations <- as.data.frame(t(replicate(20, ablate.entropy(2,1,1)))) %>%
+  mutate(run = c(1:20)) %>%
+  pivot_longer(cols = c(!run), names_to = "iter", values_to = "jsd") %>%
+  mutate(iter = as.numeric(gsub("V","", iter)),
+         remaining = rev(iter))
+
+avg <- simulations %>%
+  group_by(remaining) %>%
+  summarize(m = mean(jsd), se = sd(jsd)/sqrt(n()))
+
+abl_1 <- ggplot(avg, aes(x = remaining, y = m)) +
+  geom_path(data = simulations, mapping = aes(x=remaining, y = jsd, group = run), alpha = 0.4, color = "#F8766D") +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  scale_x_reverse() +
+  labs(title = "Session 1", y="JSD") +
+  theme_bw() + 
+  theme(panel.grid = element_blank(),
+        axis.title.x = element_blank())
+```
+
+```{r}
+simulations <- as.data.frame(t(replicate(20, ablate.entropy(2,2,1)))) %>%
+  mutate(run = c(1:20)) %>%
+  pivot_longer(cols = c(!run), names_to = "iter", values_to = "jsd") %>%
+  mutate(iter = as.numeric(gsub("V","", iter)),
+         remaining = rev(iter))
+
+avg <- simulations %>%
+  group_by(remaining) %>%
+  summarize(m = mean(jsd), se = sd(jsd)/sqrt(n()))
+
+abl_2 <- ggplot(avg, aes(x = remaining, y = m)) +
+  geom_path(data = simulations, mapping = aes(x=remaining, y = jsd, group = run), alpha = 0.4, color = "#7CAE00") +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  scale_x_reverse() +
+  labs(title = "Session 2", y="JSD") +
+  theme_bw() + 
+  theme(panel.grid = element_blank(),
+        axis.title.x = element_blank())
+```
+
+```{r}
+simulations <- as.data.frame(t(replicate(20, ablate.entropy(2,3,1)))) %>%
+  mutate(run = c(1:20)) %>%
+  pivot_longer(cols = c(!run), names_to = "iter", values_to = "jsd") %>%
+  mutate(iter = as.numeric(gsub("V","", iter)),
+         remaining = rev(iter))
+
+avg <- simulations %>%
+  group_by(remaining) %>%
+  summarize(m = mean(jsd), se = sd(jsd)/sqrt(n()))
+
+abl_3 <- ggplot(avg, aes(x = remaining, y = m)) +
+  geom_path(data = simulations, mapping = aes(x=remaining, y = jsd, group = run), alpha = 0.4, color = "#00BFC4") +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
+  scale_x_reverse() +
+  labs(title = "Session 3", x="Words remaining in mixed distribution", y="JSD") +
+  theme_bw() + 
+  theme(panel.grid = element_blank())
+```
+
+```{r}
+abl_1 / abl_2 / abl_3
+
+ggsave(file = "figures/corpus/ablation_allsessions.png", height = 10, width = 7)
+```
+
+## Stats
+
+```{r}
+library(lmerTest)
+
+m1 <- lmer(accuracy ~ trial_group*session + (1|subject), data = accuracy)
+summary(m1)
+```
+
+```{r}
+m2 <- lmer(entropy ~ trial_group*session + (1|pair), data = entropies)
+summary(m2)
+```
+```{r}
+m3 <- lmer(jsd ~ trial_group*session + (1|pair), data = jsds)
+summary(m3)
+```
+

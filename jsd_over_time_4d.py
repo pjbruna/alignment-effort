@@ -11,7 +11,7 @@ l = 0.6
 
 ### Run model ###
 
-runs = 5
+runs = 1
 
 cost_over_time = []
 cond_entropy_over_time = []
@@ -20,6 +20,7 @@ jsd_over_time = []
 ref_align_jsd = []
 ref_align_mi = []
 combined_entropy_over_time = []
+sparsity_over_time = []
 
 for _ in range(runs):
     mod = ReferentialAlignment(signal=n, referent=m, density=r)
@@ -31,20 +32,23 @@ for _ in range(runs):
     jsd_over_time.append(result[4][:-t])
     ref_align_mi.append(result[5][:-t])
     combined_entropy_over_time.append(result[6][:-t])
+    sparsity_over_time.append(result[7][:-t])
 
-### Plot cost function ###
-
-fig, axs = plt.subplots(3, 1, figsize=(10, 12))
+## PLOTS ##
 
 bin_size = 1
 
+## Plot model info ##
+
+fig, axs = plt.subplots(4, 1, figsize=(10, 12))
+
 # Plot results for each metric
-for i, (metric, ylabel) in enumerate(zip([cost_over_time, cond_entropy_over_time, signal_entropy_over_time],
-                                         ['Cost', 'H(R|S1,S2)', 'H(S1,S2)'])):
-    if(i==2):
+for i, (metric, ylabel) in enumerate(zip([cost_over_time, cond_entropy_over_time, signal_entropy_over_time, sparsity_over_time],
+                                         ['Cost', 'H(R|S1,S2)', 'H(S1,S2)', 'Sparsity'])):
+    if(i>=2):
         for j in range(runs):
             run_off = len(metric[j]) % bin_size
-            series = metric[:-run_off] if run_off > 0 else metric
+            series = metric[j][:-run_off] if run_off > 0 else metric[j]
             series_binned = [np.mean(series[k:k+bin_size]) for k in range(0, len(series), bin_size)]
             axs[i].plot(range(len(series_binned)), series_binned, color='gray', alpha=0.5)
         
@@ -98,33 +102,30 @@ for i, (metric, ylabel) in enumerate(zip([cost_over_time, cond_entropy_over_time
         axs[i].plot(range(len(avg_series_binned)), avg_series_binned, color='black', linestyle = 'dashed', label=f'S2')
     
     # Add labels and legend for each subplot
-    axs[2].set_xlabel(f'Time (1 unit = {bin_size} timesteps)', fontsize=15)
+    axs[3].set_xlabel(f'Time (1 unit = {bin_size} timesteps)', fontsize=15)
     axs[i].set_ylabel(ylabel, fontsize=15)
     # axs[i].legend()
     # axs[i].grid(True)
     # axs[0].set_title('Minimizing joint cost function')
 
 plt.tight_layout()
-plt.show()
+# plt.show()
 
-# plt.savefig("figures/4d_over_time.png")
+plt.savefig(f'figures/4d_n={n}_t={t}.png')
 plt.clf()
 
-### Plot effect trends ###
+## Plot effect trends ##
     
 fig, axs = plt.subplots(3, 1, figsize=(10, 12))
-
-bin_size = 1
 
 # Plot results for each metric
 for i, (metric, ylabel) in enumerate(zip([ref_align_mi, combined_entropy_over_time, jsd_over_time],
                                          ['MI(R1,R2)', 'H(S1+S2)', 'JSD(S1,S2)'])):
-    if(i==i):
-        for j in range(runs):
-            run_off = len(metric[j]) % bin_size
-            series = metric[j][:-run_off] if run_off > 0 else metric
-            series_binned = [np.mean(series[k:k+bin_size]) for k in range(0, len(series), bin_size)]
-            axs[i].plot(range(len(series_binned)), series_binned, color='gray', alpha=0.5)
+    for j in range(runs):
+        run_off = len(metric[j]) % bin_size
+        series = metric[j][:-run_off] if run_off > 0 else metric[j]
+        series_binned = [np.mean(series[k:k+bin_size]) for k in range(0, len(series), bin_size)]
+        axs[i].plot(range(len(series_binned)), series_binned, color='gray', alpha=0.5)
         
         # Create avg.
         shortest_run = min(len(run) for run in metric)
@@ -144,8 +145,8 @@ for i, (metric, ylabel) in enumerate(zip([ref_align_mi, combined_entropy_over_ti
     # axs[0].set_title('Minimizing joint cost function')
 
 plt.tight_layout()
-plt.show()
+# plt.show()
 
-# plt.savefig("figures/4d_trends.png")
+plt.savefig(f'figures/4d_trends_n={n}_t={t}.png')
 plt.clf()
 

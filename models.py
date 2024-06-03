@@ -146,6 +146,7 @@ class JointSpeakerAlignment:
     signal_entropy_over_time = []
     jsd_over_time = []
     combined_entropy_over_time = []
+    sparsity_over_time = []
 
     flips = []
 
@@ -194,9 +195,13 @@ class JointSpeakerAlignment:
         combined_entropy = np.sum(entropy(s1s2_prob)) / np.log(np.size(s1s2_prob))
         combined_entropy_over_time.append(combined_entropy)
 
+        # Track matrix sparsity over time
+        sparsity_over_time.append(self.mat.sum() / np.prod(self.mat.shape))
+        print(self.mat.sum())
+
     print(np.mean(flips))
 
-    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time, combined_entropy_over_time)
+    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time, combined_entropy_over_time, sparsity_over_time)
   
 
 ### 4D - evolve joint speaker distribution w.r.t. *individual* referent dimensions (R1, R2, S1, S2) ###
@@ -254,10 +259,12 @@ class ReferentialAlignment:
     jsd_over_time = []
     ref_align_mi = []
     combined_entropy_over_time = []
+    sparsity_over_time = []
 
     flips = []
 
     counter = 0
+    discarded = 0
     while(counter < stop):
       trans_mat = np.zeros((self.referent, self.referent, self.signal, self.signal))
       for r1 in range(trans_mat.shape[0]):
@@ -271,6 +278,9 @@ class ReferentialAlignment:
       new_mat = abs(self.mat - trans_mat)
 
       if ((0 not in new_mat.mean(axis=0).mean(axis=1).mean(axis=1)) and (0 not in new_mat.mean(axis=1).mean(axis=1).mean(axis=1))): # Disallow signless referents
+        print(f'Discarded Matrices: {discarded}')
+        discarded = 0 
+
         old_s1 = self.energy_function(self.mat.mean(axis=1), lam) # Avg over S2 referent dimension
         old_s2 = self.energy_function(self.mat.mean(axis=0), lam) # mutatis mutandis...
         new_s1 = self.energy_function(new_mat.mean(axis=1), lam)
@@ -285,11 +295,13 @@ class ReferentialAlignment:
           cost_over_time.append([new_s1[0], new_s2[0]])
           cond_entropy_over_time.append([new_s1[1], new_s2[1]])
           signal_entropy_over_time.append([new_s1[2], new_s2[2]])
+          print(f'Cost: {new_cost}; Conditional Entropy: {np.mean([new_s1[1], new_s2[1]])}; Signal Entropy: {new_s1[2]}')
         else:
           counter += 1
           cost_over_time.append([old_s1[0], old_s2[0]])
           cond_entropy_over_time.append([old_s1[1], old_s2[1]])
           signal_entropy_over_time.append([old_s1[2], old_s2[2]])
+          print(f'Cost: {old_cost}; Conditional Entropy: {np.mean([old_s1[1], old_s2[1]])}; Signal Entropy: {old_s1[2]}')
 
         # Calculate JSD (between speakers)
         s1 = self.mat.mean(axis=1).mean(axis=2)
@@ -308,7 +320,14 @@ class ReferentialAlignment:
         # Calculate H(S1+S2)
         s1s2_prob = (np.array(s1_prob) + np.array(s2_prob)) / 2
         combined_entropy = np.sum(entropy(s1s2_prob)) / np.log(np.size(s1s2_prob))
-        combined_entropy_over_time.append(combined_entropy)  
+        combined_entropy_over_time.append(combined_entropy)
+
+        # Track matrix sparsity over time
+        sparsity_over_time.append(self.mat.sum() / np.prod(self.mat.shape))
+        print(f'Sparsity: {self.mat.sum()}')
+
+      else:
+        discarded += 1
 
     print(np.mean(flips))
-    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time, ref_align_mi, combined_entropy_over_time)
+    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time, ref_align_mi, combined_entropy_over_time, sparsity_over_time)
