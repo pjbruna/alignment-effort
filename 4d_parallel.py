@@ -1,5 +1,6 @@
 from math import comb
 import matplotlib.pyplot as plt
+import pandas as pd
 from models import *
 import multiprocessing as mp
 
@@ -7,7 +8,7 @@ n = 4
 m = n**2
 r = 0.5 # SDIC?
 v = 2 / comb(63, 2)
-t = 2 * (m**2)
+t = 2 #2 * (m**2)
 l = 0.6
 
 def run_model(index):
@@ -51,6 +52,7 @@ if __name__ == "__main__":
     ref_mi = []
     sum_ent = []
     sparsity = []
+    run_num = []
 
     for i in range(runs):
         cost.append(results[i][0][0])
@@ -60,6 +62,40 @@ if __name__ == "__main__":
         ref_mi.append(results[i][4][0])
         sum_ent.append(results[i][5][0])
         sparsity.append(results[i][6][0])
+        run_num.extend(np.repeat(i+1, len(results[i][6][0])))
+
+    ## STORE DATA ##
+
+    log_cost_over_time = [item for sublist in cost for item in sublist]
+    log_cond_entropy_over_time = [item for sublist in cond_ent for item in sublist]
+    log_signal_entropy_over_time = [item for sublist in sig_ent for item in sublist]
+    log_jsd_over_time = [item for sublist in sig_jsd for item in sublist]
+    log_ref_align_mi = [item for sublist in ref_mi for item in sublist]
+    log_combined_entropy_over_time = [item for sublist in sum_ent for item in sublist]
+    log_sparsity_over_time = [item for sublist in sparsity for item in sublist]
+
+    log_s1_cost_over_time = [item[0] for item in log_cost_over_time]
+    log_s2_cost_over_time = [item[1] for item in log_cost_over_time]
+    log_s1_cond_entropy_over_time = [item[0] for item in log_cond_entropy_over_time]
+    log_s2_cond_entropy_over_time = [item[1] for item in log_cond_entropy_over_time]
+    log_signal_entropy_over_time = [item[0] for item in log_signal_entropy_over_time]
+    log_ref_align_mi = [item[0] for item in log_ref_align_mi]
+
+    data = {
+        's1_cost_over_time': log_s1_cost_over_time,
+        's2_cost_over_time': log_s2_cost_over_time,
+        's1_cond_entropy_over_time': log_s1_cond_entropy_over_time,
+        's2_cond_entropy_over_time': log_s2_cond_entropy_over_time,
+        'signal_entropy_over_time': log_signal_entropy_over_time,
+        'jsd_over_time': log_jsd_over_time,
+        'ref_align_mi': log_ref_align_mi,
+        'combined_entropy_over_time': log_combined_entropy_over_time,
+        'sparsity_over_time': log_sparsity_over_time,
+        'run': run_num
+    }
+
+    df = pd.DataFrame(data)
+    df.to_csv(f'data/4d_n={n}_t={t}.csv', index=False)
 
     ## PLOTS ##
 

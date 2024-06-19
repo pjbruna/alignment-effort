@@ -1,5 +1,6 @@
 from math import comb
 import matplotlib.pyplot as plt
+import pandas as pd
 from models import *
 
 n = 4
@@ -21,8 +22,9 @@ ref_align_jsd = []
 ref_align_mi = []
 combined_entropy_over_time = []
 sparsity_over_time = []
+# log_run = []
 
-for _ in range(runs):
+for num in range(runs):
     mod = ReferentialAlignment(signal=n, referent=m, density=r)
     result = mod.run_to_equilibrium(prob=v, lam=l, stop=t)
 
@@ -33,6 +35,40 @@ for _ in range(runs):
     ref_align_mi.append(result[5][:-t])
     combined_entropy_over_time.append(result[6][:-t])
     sparsity_over_time.append(result[7][:-t])
+    # log_run.extend(np.repeat(num+1, len(result[7][:-t])))
+
+# ## STORE DATA ##
+# 
+# log_cost_over_time = [item for sublist in cost_over_time for item in sublist]
+# log_cond_entropy_over_time = [item for sublist in cond_entropy_over_time for item in sublist]
+# log_signal_entropy_over_time = [item for sublist in signal_entropy_over_time for item in sublist]
+# log_jsd_over_time = [item for sublist in jsd_over_time for item in sublist]
+# log_ref_align_mi = [item for sublist in ref_align_mi for item in sublist]
+# log_combined_entropy_over_time = [item for sublist in combined_entropy_over_time for item in sublist]
+# log_sparsity_over_time = [item for sublist in sparsity_over_time for item in sublist]
+# 
+# log_s1_cost_over_time = [item[0] for item in log_cost_over_time]
+# log_s2_cost_over_time = [item[1] for item in log_cost_over_time]
+# log_s1_cond_entropy_over_time = [item[0] for item in log_cond_entropy_over_time]
+# log_s2_cond_entropy_over_time = [item[1] for item in log_cond_entropy_over_time]
+# log_signal_entropy_over_time = [item[0] for item in log_signal_entropy_over_time]
+# log_ref_align_mi = [item[0] for item in log_ref_align_mi]
+# 
+# data = {
+#     's1_cost_over_time': log_s1_cost_over_time,
+#     's2_cost_over_time': log_s2_cost_over_time,
+#     's1_cond_entropy_over_time': log_s1_cond_entropy_over_time,
+#     's2_cond_entropy_over_time': log_s2_cond_entropy_over_time,
+#     'signal_entropy_over_time': log_signal_entropy_over_time,
+#     'jsd_over_time': log_jsd_over_time,
+#     'ref_align_mi': log_ref_align_mi,
+#     'combined_entropy_over_time': log_combined_entropy_over_time,
+#     'sparsity_over_time': log_sparsity_over_time,
+#     'run': log_run
+# }
+# 
+# df = pd.DataFrame(data)
+# df.to_csv(f'data/4d_n={n}_t={t}.csv', index=False)
 
 ## PLOTS ##
 
@@ -45,7 +81,7 @@ fig, axs = plt.subplots(4, 1, figsize=(10, 12))
 # Plot results for each metric
 for i, (metric, ylabel) in enumerate(zip([cost_over_time, cond_entropy_over_time, signal_entropy_over_time, sparsity_over_time],
                                          ['Cost', 'H(R|S1,S2)', 'H(S1,S2)', 'Sparsity'])):
-    if(i>=2):
+    if(i>1):
         for j in range(runs):
             run_off = len(metric[j]) % bin_size
             series = metric[j][:-run_off] if run_off > 0 else metric[j]
@@ -111,7 +147,7 @@ for i, (metric, ylabel) in enumerate(zip([cost_over_time, cond_entropy_over_time
 plt.tight_layout()
 # plt.show()
 
-plt.savefig(f'figures/4d_n={n}_t={t}.png')
+# plt.savefig(f'figures/4d_n={n}_t={t}.png')
 plt.clf()
 
 ## Plot effect trends ##
@@ -147,6 +183,6 @@ for i, (metric, ylabel) in enumerate(zip([ref_align_mi, combined_entropy_over_ti
 plt.tight_layout()
 # plt.show()
 
-plt.savefig(f'figures/4d_trends_n={n}_t={t}.png')
+# plt.savefig(f'figures/4d_trends_n={n}_t={t}.png')
 plt.clf()
 
