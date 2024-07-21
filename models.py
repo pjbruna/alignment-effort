@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import random
 
 ### Helper functions ###
@@ -260,12 +261,21 @@ class ReferentialAlignment:
     ref_align_mi = []
     combined_entropy_over_time = []
     sparsity_over_time = []
+    mat_over_time = [self.mat.flatten()]
 
     flips = []
 
+    timestep = 0
     counter = 0
     discarded = 0
     while(counter < stop):
+      # Save current matrix
+      timestep += 1
+      if (timestep % 100): 
+        mat_over_time.append(self.mat.flatten())
+        # print(self.mat)
+
+      # Generate competitor
       trans_mat = np.zeros((self.referent, self.referent, self.signal, self.signal))
       for r1 in range(trans_mat.shape[0]):
         for r2 in range(trans_mat.shape[1]):
@@ -296,6 +306,7 @@ class ReferentialAlignment:
           cond_entropy_over_time.append([new_s1[1], new_s2[1]])
           signal_entropy_over_time.append([new_s1[2], new_s2[2]])
           print(f'Cost: {new_cost}; Conditional Entropy: {np.mean([new_s1[1], new_s2[1]])}; Signal Entropy: {new_s1[2]}')
+
         else:
           counter += 1
           cost_over_time.append([old_s1[0], old_s2[0]])
@@ -330,4 +341,4 @@ class ReferentialAlignment:
         discarded += 1
 
     print(np.mean(flips))
-    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time, ref_align_mi, combined_entropy_over_time, sparsity_over_time)
+    return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time, ref_align_mi, combined_entropy_over_time, sparsity_over_time, mat_over_time)

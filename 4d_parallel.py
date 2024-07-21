@@ -3,12 +3,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from models import *
 import multiprocessing as mp
+import netCDF4 as nc
 
 n = 4
 m = n**2
 r = 0.5 # SDIC?
 v = 2 / comb(63, 2)
-t = 2 #2 * (m**2)
+t = 2 * (m**2)
 l = 0.6
 
 def run_model(index):
@@ -21,6 +22,7 @@ def run_model(index):
     ref_align_mi = []
     combined_entropy_over_time = []
     sparsity_over_time = []
+    mat_over_time = []
 
     mod = ReferentialAlignment(signal=n, referent=m, density=r)
     result = mod.run_to_equilibrium(prob=v, lam=l, stop=t)
@@ -33,12 +35,14 @@ def run_model(index):
     combined_entropy_over_time.append(result[6][:-t])
     sparsity_over_time.append(result[7][:-t])
 
-    return cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time, ref_align_mi, combined_entropy_over_time, sparsity_over_time
+    mat_over_time.append(result[8])
+
+    return cost_over_time, cond_entropy_over_time, signal_entropy_over_time, jsd_over_time, ref_align_mi, combined_entropy_over_time, sparsity_over_time, mat_over_time
 
 ### RUN ###
 
 if __name__ == "__main__":
-    runs = 2
+    runs = 1
 
     # Create a multiprocessing pool
     with mp.Pool() as pool:        
@@ -63,6 +67,10 @@ if __name__ == "__main__":
         sum_ent.append(results[i][5][0])
         sparsity.append(results[i][6][0])
         run_num.extend(np.repeat(i+1, len(results[i][6][0])))
+
+        mat_data = np.array(results[i][7][0])
+        mat_df = pd.DataFrame(mat_data)
+        mat_df.to_csv(f'data/matrix_run={i}_l={l}.csv', index=False, header=False)
 
     ## STORE DATA ##
 
@@ -95,7 +103,7 @@ if __name__ == "__main__":
     }
 
     df = pd.DataFrame(data)
-    df.to_csv(f'data/4d_n={n}_t={t}.csv', index=False)
+    df.to_csv(f'data/4d_n={n}_v={v}_l={l}.csv', index=False)
 
     ## PLOTS ##
 

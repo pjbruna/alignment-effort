@@ -657,7 +657,7 @@ abl_3 <- ggplot(avg, aes(x = remaining, y = m)) +
 ```{r}
 abl_1 / abl_2 / abl_3
 
-ggsave(file = "figures/corpus/ablation_allsessions.png", height = 10, width = 7)
+# ggsave(file = "figures/corpus/ablation_allsessions.png", height = 10, width = 7)
 ```
 
 ## Stats
@@ -676,5 +676,267 @@ summary(m2)
 ```{r}
 m3 <- lmer(jsd ~ trial_group*session + (1|pair), data = jsds)
 summary(m3)
+```
+
+### Covariation
+
+```{r}
+accuracy_filtered <- rename(accuracy, pair = subject) %>%
+  filter(pair %in% entropies$pair) %>%
+  filter(session %in% c(1,2) | session == 3 & trial_group != 12)
+  
+trends_df <- full_join(accuracy_filtered, entropies, by = c("pair", "session", "trial_group")) %>%
+  full_join(jsds, by = c("pair", "session", "trial_group"))
+```
+
+```{r}
+ggplot(trends_df, aes(x = trial_group, y = accuracy, color = session)) +
+  facet_wrap(~pair) +
+  geom_jitter() +
+  labs(title = "acc") + 
+  geom_smooth(method = "lm")
+
+ggplot(trends_df, aes(x = trial_group, y = entropy, color = session)) +
+  facet_wrap(~pair) +
+  geom_jitter() +
+  labs(title = "entr") + 
+  geom_smooth(method = "lm")
+
+ggplot(trends_df, aes(x = trial_group, y = jsd, color = session)) +
+  facet_wrap(~pair) +
+  geom_jitter() +
+  labs(title = "jsd") + 
+  geom_smooth(method = "lm")
+```
+
+```{r}
+acc <- trends_df %>% 
+    group_by(pair, session) %>% 
+    do({
+      mod = lm(accuracy ~ trial_group, data = .)
+      data.frame(Intercept = coef(mod)[1],
+                 Slope = coef(mod)[2])
+    }) %>%
+  pivot_longer(cols = c("Intercept", "Slope"), names_to = "value", values_to = "acc")
+
+ent <- trends_df %>% 
+    group_by(pair, session) %>% 
+    do({
+      mod = lm(entropy ~ trial_group, data = .)
+      data.frame(Intercept = coef(mod)[1],
+                 Slope = coef(mod)[2])
+    }) %>%
+  pivot_longer(cols = c("Intercept", "Slope"), names_to = "value", values_to = "ent")
+
+jsd <- trends_df %>% 
+    group_by(pair, session) %>% 
+    do({
+      mod = lm(jsd ~ trial_group, data = .)
+      data.frame(Intercept = coef(mod)[1],
+                 Slope = coef(mod)[2])
+    }) %>%
+  pivot_longer(cols = c("Intercept", "Slope"), names_to = "value", values_to = "jsd")
+
+yb_data <- full_join(acc, ent) %>% full_join(jsd)
+```
+
+```{r}
+calculate_correlations <- function(sess, val){
+  temp_df <- yb_data %>% filter(session == sess, value == val)
+  print(paste0("AccxEnt Cor: ", cor(temp_df$acc, temp_df$ent)))
+  print(paste0("EntxJSD Cor: ", cor(temp_df$ent, temp_df$jsd)))
+  print(paste0("AccxJSD Cor: ", cor(temp_df$acc, temp_df$jsd)))
+}
+
+calculate_correlations("2", "Intercept")
+```
+
+```{r}
+library(patchwork)
+
+p1 <- ggplot(yb_data, aes(x=jsd, y=acc, color=session)) +
+  facet_wrap(~value, ncol = 1, scales = "free") +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme(legend.position = "none")
+
+p2 <- ggplot(yb_data, aes(x=ent, y=acc, color=session)) +
+  facet_wrap(~value, ncol = 1, scales = "free") +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme(legend.position = "none")
+
+p3 <- ggplot(yb_data, aes(x=ent, y=jsd, color=session)) +
+  facet_wrap(~value, ncol = 1, scales = "free") +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+p1 + p2 + p3
+```
+
+```{r}
+avg_per_dyad <- trends_df %>%
+  group_by(session, pair) %>%
+  summarize(avg_acc = mean(accuracy), avg_ent = mean(entropy), avg_jsd = mean(jsd))
+
+for(i in c("1", "2", "3")){
+  temp_df <- avg_per_dyad %>% filter(session == i)
+  
+  print(paste0("Session: ", i))
+  print(paste0("AccxEnt Cor: ", cor(temp_df$avg_acc, temp_df$avg_ent)))
+  print(paste0("AccxJSD Cor: ", cor(temp_df$avg_acc, temp_df$avg_jsd)))
+  print(paste0("JSDxEnt Cor: ", cor(temp_df$avg_jsd, temp_df$avg_ent)))
+}
+```
+
+```{r}
+ggplot(avg_per_dyad, aes(x=avg_ent, y=avg_acc, color=session)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+ggplot(avg_per_dyad, aes(x=avg_jsd, y=avg_acc, color=session)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+ggplot(avg_per_dyad, aes(x=avg_jsd, y=avg_ent, color=session)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+```{r}
+trends_df$session <- factor(trends_df$session, levels = c("1", "2", "3"))
+
+m4 <- lmer(accuracy ~ entropy*session + (1|pair) + (1|trial_group), data = trends_df)
+summary(m4) 
+```
+
+```{r}
+entropy_seq <- seq(min(trends_df$entropy), max(trends_df$entropy), length.out = 100)
+
+model_predictions <- expand.grid(
+  entropy = entropy_seq,
+  session = unique(trends_df$session),
+  pair = unique(trends_df$pair)
+)
+
+model_predictions <- model_predictions %>%
+  mutate(accuracy = predict(m4, newdata = model_predictions, re.form = ~(entropy|pair)))
+
+ggplot(trends_df, aes(x = entropy, y = accuracy, color = session)) +
+  facet_wrap(~pair) +
+  geom_point(alpha = 0.2) +
+  geom_line(data = model_predictions, aes(x = entropy, y = accuracy, color = session))
+```
+
+```{r}
+entropy_seq <- seq(min(trends_df$entropy), max(trends_df$entropy), length.out = 100)
+
+model_predictions <- expand.grid(
+  entropy = entropy_seq,
+  session = unique(trends_df$session),
+  pair = unique(trends_df$pair),
+  trial_group = unique(trends_df$trial_group)
+)
+
+model_predictions <- model_predictions %>%
+  mutate(accuracy = predict(m4, newdata = model_predictions, re.form = ~(entropy|trial_group)))
+
+ggplot(trends_df, aes(x = entropy, y = accuracy, color = session)) +
+  facet_wrap(~trial_group) +
+  geom_point(alpha = 0.2) +
+  geom_line(data = model_predictions, aes(x = entropy, y = accuracy, color = session))
+```
+
+```{r}
+trends_df$session <- factor(trends_df$session, levels = c("1", "2", "3"))
+
+m5 <- lmer(accuracy ~ jsd*session + (1|pair) + (1|trial_group), data = trends_df)
+summary(m5)
+```
+
+```{r}
+jsd_seq <- seq(min(trends_df$jsd), max(trends_df$jsd), length.out = 100)
+
+model_predictions <- expand.grid(
+  jsd = jsd_seq,
+  session = unique(trends_df$session),
+  pair = unique(trends_df$pair)
+)
+
+model_predictions <- model_predictions %>%
+  mutate(accuracy = predict(m5, newdata = model_predictions, re.form = ~(1|pair)))
+
+ggplot(trends_df, aes(x = jsd, y = accuracy, color = session)) +
+  facet_wrap(~pair) +
+  geom_point(alpha = 0.2) +
+  geom_line(data = model_predictions, aes(x = jsd, y = accuracy, color = session))
+```
+
+```{r}
+jsd_seq <- seq(min(trends_df$jsd), max(trends_df$jsd), length.out = 100)
+
+model_predictions <- expand.grid(
+  jsd = jsd_seq,
+  session = unique(trends_df$session),
+  pair = unique(trends_df$pair),
+  trial_group = unique(trends_df$trial_group)
+)
+
+model_predictions <- model_predictions %>%
+  mutate(accuracy = predict(m5, newdata = model_predictions, re.form = ~(1|trial_group)))
+
+ggplot(trends_df, aes(x = jsd, y = accuracy, color = session)) +
+  facet_wrap(~trial_group) +
+  geom_point(alpha = 0.2) +
+  geom_line(data = model_predictions, aes(x = jsd, y = accuracy, color = session))
+```
+
+## Granger
+
+```{r}
+library(lmtest)
+
+avg_trends <- trends_df %>%
+  filter(session == "1") %>%
+  group_by(trial_group) %>%
+  summarize(m_acc = mean(accuracy),
+            m_ent = mean(entropy),
+            m_jsd = mean(jsd))
+```
+
+```{r}
+plot(diff(log(avg_trends$m_acc)))
+plot(diff(log(avg_trends$m_ent)))
+plot(diff(log(avg_trends$m_jsd)))
+```
+
+```{r}
+grangertest(diff(log(avg_trends$m_acc)) ~ diff(log(avg_trends$m_ent)), order = 1, data = trends_df)
+grangertest(diff(log(avg_trends$m_ent)) ~ diff(log(avg_trends$m_acc)), order = 1, data = trends_df)
+```
+
+```{r}
+grangertest(diff(log(avg_trends$m_acc)) ~ diff(log(avg_trends$m_jsd)), order = 1, data = trends_df)
+grangertest(diff(log(avg_trends$m_jsd)) ~ diff(log(avg_trends$m_acc)), order = 1, data = trends_df)
+```
+
+```{r}
+plot(residuals(lm(m_acc ~ trial_group, data = avg_trends)))
+plot(residuals(lm(m_ent ~ trial_group, data = avg_trends)))
+plot(residuals(lm(m_jsd ~ trial_group, data = avg_trends)))
+```
+
+```{r}
+grangertest(residuals(lm(m_acc ~ trial_group, data = avg_trends)) ~ residuals(lm(m_ent ~ trial_group, data = avg_trends)),
+            order = 1, data = trends_df)
+grangertest(residuals(lm(m_ent ~ trial_group, data = avg_trends)) ~ residuals(lm(m_acc ~ trial_group, data = avg_trends)),
+            order = 1, data = trends_df)
+```
+
+```{r}
+grangertest(residuals(lm(m_acc ~ trial_group, data = avg_trends)) ~ residuals(lm(m_jsd ~ trial_group, data = avg_trends)),
+            order = 1, data = trends_df)
+grangertest(residuals(lm(m_jsd ~ trial_group, data = avg_trends)) ~ residuals(lm(m_acc ~ trial_group, data = avg_trends)),
+            order = 1, data = trends_df)
 ```
 
