@@ -1,12 +1,13 @@
 from math import comb
 import matplotlib.pyplot as plt
+import pandas as pd
 from models import *
 import multiprocessing as mp
 
 n = 6
 m = n**2
 r = 0.5 # SDIC?
-v = 2 / comb(m, 2)
+v = 1 / m**2 # 2 / comb(m, 2)
 t = 2 * (m**2)
 l = 0.41
 
@@ -35,7 +36,7 @@ def run_model(index):
 ### RUN ###
 
 if __name__ == "__main__":
-    runs = 2
+    runs = 10
 
     # Create a multiprocessing pool
     with mp.Pool() as pool:        
@@ -48,6 +49,7 @@ if __name__ == "__main__":
     sig_jsd = []
     sum_ent = []
     sparsity = []
+    run_num = []
 
     for i in range(runs):
         cost.append(results[i][0][0])
@@ -56,6 +58,29 @@ if __name__ == "__main__":
         sig_jsd.append(results[i][3][0])
         sum_ent.append(results[i][4][0])
         sparsity.append(results[i][5][0])
+        run_num.extend(np.repeat(i+1, len(results[i][5][0])))
+
+    ## STORE DATA ##
+
+    log_cost_over_time = [item for sublist in cost for item in sublist]
+    log_cond_entropy_over_time = [item for sublist in cond_ent for item in sublist]
+    log_signal_entropy_over_time = [item for sublist in sig_ent for item in sublist]
+    log_jsd_over_time = [item for sublist in sig_jsd for item in sublist]
+    log_combined_entropy_over_time = [item for sublist in sum_ent for item in sublist]
+    log_sparsity_over_time = [item for sublist in sparsity for item in sublist]
+
+    data = {
+        'cost_over_time': log_cost_over_time,
+        'cond_entropy_over_time': log_cond_entropy_over_time,
+        'signal_entropy_over_time': log_signal_entropy_over_time,
+        'jsd_over_time': log_jsd_over_time,
+        'combined_entropy_over_time': log_combined_entropy_over_time,
+        'sparsity_over_time': log_sparsity_over_time,
+        'run': run_num
+    }
+
+    df = pd.DataFrame(data)
+    df.to_csv(f'data/3d_n={n}_v={v}_l={l}.csv', index=False)
 
     ## PLOTS ##
 
@@ -92,7 +117,7 @@ if __name__ == "__main__":
     # axs[0].set_title('Minimizing joint cost function')
 
     plt.tight_layout()
-    plt.savefig(f'figures/3d_parallel_n={n}_t={t}.png')
+    plt.savefig(f'figures/3d_parallel_n={n}_v={v}_l={l}.png')
     plt.clf()
 
     ### Figure ###
@@ -125,5 +150,5 @@ if __name__ == "__main__":
         # axs[0].set_title('Minimizing joint cost function')
 
     plt.tight_layout()
-    plt.savefig(f'figures/3d_parallel_trends_n={n}_t={t}.png')
+    plt.savefig(f'figures/3d_parallel_trends_n={n}_v={v}_l={l}.png')
     plt.clf()

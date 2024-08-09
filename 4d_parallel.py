@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from models import *
 import multiprocessing as mp
-import netCDF4 as nc
 
 n = 4
 m = n**2
@@ -70,7 +69,7 @@ if __name__ == "__main__":
 
         mat_data = np.array(results[i][7][0])
         mat_df = pd.DataFrame(mat_data)
-        mat_df.to_csv(f'data/matrix_run={i}_l={l}.csv', index=False, header=False)
+        mat_df.to_csv(f'data/4d_matrix_run={i}_n={n}_v={v}_l={l}.csv', index=False, header=False)
 
     ## STORE DATA ##
 

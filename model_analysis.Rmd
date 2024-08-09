@@ -12,20 +12,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 library(lmerTest)
-library(lmtest) # granger
 library(patchwork)
 ```
 
-
-```{r}
-data <- read_csv("data/4d_n=6_l=0.6_v=8.942144326209425e-05_t=2592.csv")
-
-data <- data %>%
-  group_by(run) %>%
-  mutate(time = row_number())
-```
-
-# Figures
+# Helper functions
 
 ```{r}
 bin_series <- function(series, bin_size){
@@ -42,19 +32,171 @@ bin_series <- function(series, bin_size){
 }
 ```
 
+# Replication figures
+
 ```{r}
-binned_data <- data %>%
+data_2d <- read_csv("data/rep_over_time.csv") %>%
   group_by(run) %>%
-  summarize(
-    s1_cost_over_time = bin_series(temp_df$s1_cost_over_time, bin_size=1000),
-    s2_cost_over_time = bin_series(temp_df$s2_cost_over_time, bin_size=1000),
-    s1_cond_entropy_over_time = bin_series(temp_df$s1_cond_entropy_over_time, bin_size=1000),
-    s2_cond_entropy_over_time = bin_series(temp_df$s2_cond_entropy_over_time, bin_size=1000),
-    signal_entropy_over_time = bin_series(temp_df$signal_entropy_over_time, bin_size=1000),
-    jsd_over_time = bin_series(temp_df$jsd_over_time, bin_size=1000),
-    ref_align_mi = bin_series(temp_df$ref_align_mi, bin_size=1000),
-    combined_entropy_over_time = bin_series(temp_df$combined_entropy_over_time, bin_size=1000),
-    sparsity_over_time = bin_series(temp_df$sparsity_over_time, bin_size=1000)) %>%
+  mutate(time = row_number())
+```
+
+```{r}
+binned_data_2d <- setNames(data.frame(matrix(ncol = length(colnames(data_2d)), nrow = 0)), colnames(data_2d))
+
+for(i in 1:max(data_2d$run)){
+  run_data <- data_2d %>% filter(run == i)
+  
+  temp_df <- data.frame(
+    cost = bin_series(run_data$cost, bin_size=250),
+    cond_ent = bin_series(run_data$cond_ent, bin_size=250),
+    sig_ent = bin_series(run_data$sig_ent, bin_size=250),
+    run = i
+  )
+  
+  binned_data_2d <- rbind(binned_data_2d, temp_df)
+}
+
+binned_data_2d <- binned_data_2d %>%
+  group_by(run) %>%
+  mutate(time = row_number())
+```
+
+```{r}
+avg_data_2d <- data_2d %>%
+  pivot_longer(cols = !c(run, time), names_to = "metric", values_to = "value") %>%
+  group_by(metric, time) %>%
+  summarize(m = mean(value), se = sd(value) / sqrt(n())) %>%
+  filter(!is.na(se))
+```
+
+```{r}
+avg_data_2d$metric <- factor(avg_data_2d$metric,
+                             levels = c("sig_ent", "cost", "cond_ent"),
+                             labels = c("Hn(S)", "Weighted Average", "Hm(R|S)"))
+
+ggplot(avg_data_2d, aes(x = time, y = m, linetype = metric)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3, linetype = 0) +
+  labs(x = "Time (1 unit = 250 timesteps)", y = "Value", linetype = "Measure") +
+  theme_bw()
+```
+
+# 3D figures
+
+```{r}
+data_3d <- read_csv("data/3d_n=6_v=0.0007716049382716049_l=0.41.csv")
+```
+
+```{r}
+binned_data_3d <- setNames(data.frame(matrix(ncol = length(colnames(data_3d)), nrow = 0)), colnames(data_3d))
+
+for(i in 1:max(data_3d$run)){
+  run_data <- data_3d %>% filter(run == i)
+  
+  temp_df <- data.frame(
+    cost_over_time = bin_series(run_data$cost_over_time, bin_size=250),
+    cond_entropy_over_time = bin_series(run_data$cond_entropy_over_time, bin_size=250),
+    signal_entropy_over_time = bin_series(run_data$signal_entropy_over_time, bin_size=250),
+    jsd_over_time = bin_series(run_data$jsd_over_time, bin_size=250),
+    combined_entropy_over_time = bin_series(run_data$combined_entropy_over_time, bin_size=250),
+    sparsity_over_time = bin_series(run_data$sparsity_over_time, bin_size=250),
+    run = i
+  )
+  
+  binned_data_3d <- rbind(binned_data_3d, temp_df)
+}
+
+binned_data_3d <- binned_data_3d %>%
+  group_by(run) %>%
+  mutate(time = row_number())
+```
+
+```{r}
+avg_data_3d <- binned_data_3d %>%
+  pivot_longer(cols = !c(run, time), names_to = "metric", values_to = "value") %>%
+  group_by(metric, time) %>%
+  summarize(m = mean(value), se = sd(value) / sqrt(n())) %>%
+  filter(!is.na(se))
+```
+
+```{r}
+cost <- ggplot(avg_data_3d %>% filter(metric == "cost_over_time"), aes(x = time, y = m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(expression(Omega(lambda))) +
+  theme_bw() +
+  theme(axis.title.x = element_blank())
+
+cond_ent <- ggplot(avg_data_3d %>% filter(metric == "cond_entropy_over_time"), aes(x = time, y = m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(bquote(H[m]("R|S"[1],S[2]))) + # "Hm(R|S1,S2)"
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        legend.position = "none")
+
+sig_ent <- ggplot(avg_data_3d %>% filter(metric == "signal_entropy_over_time"), aes(x = time, y = m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(bquote(H[n](S[1],S[2]))) + # "Hn(S1,S2)"
+  xlab("Time (1 unit = 250 timesteps)") +
+  theme_bw()
+
+cost / cond_ent / sig_ent
+
+# ggsave(file = "figures/model/3d_cost.png", height = 7)
+```
+
+```{r}
+ent <- ggplot(avg_data_3d %>% filter(metric == "combined_entropy_over_time"), aes(x=time, y=m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(bquote(H[n](S[1]+S[2]))) + # "H(S1+S2)"
+  theme_bw() +
+  theme(axis.title.x = element_blank())
+
+jsd <- ggplot(avg_data_3d %>% filter(metric == "jsd_over_time"), aes(x=time, y=m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(bquote(JSD(S[1],S[2]))) + # "JSD(S1,S2)"
+  xlab("Time (1 unit = 250 timesteps)") +
+  theme_bw()
+
+ent / jsd
+
+# ggsave(file = "figures/model/3d_trends.png", height = 7)
+```
+
+# 4D figures
+
+```{r}
+data <- read_csv("data/4d_n=6_l=0.6_v=2.168374261397517e-05_t=2592.csv")
+```
+
+```{r}
+binned_data <- setNames(data.frame(matrix(ncol = length(colnames(data)), nrow = 0)), colnames(data))
+
+for(i in 1:max(data$run)){
+  run_data <- data %>% filter(run == i)
+  
+  temp_df <- data.frame(
+    s1_cost_over_time = bin_series(run_data$s1_cost_over_time, bin_size=250),
+    s2_cost_over_time = bin_series(run_data$s2_cost_over_time, bin_size=250),
+    s1_cond_entropy_over_time = bin_series(run_data$s1_cond_entropy_over_time, bin_size=250),
+    s2_cond_entropy_over_time = bin_series(run_data$s2_cond_entropy_over_time, bin_size=250),
+    signal_entropy_over_time = bin_series(run_data$signal_entropy_over_time, bin_size=250),
+    jsd_over_time = bin_series(run_data$jsd_over_time, bin_size=250),
+    ref_align_mi = bin_series(run_data$ref_align_mi, bin_size=250),
+    combined_entropy_over_time = bin_series(run_data$combined_entropy_over_time, bin_size=250),
+    sparsity_over_time = bin_series(run_data$sparsity_over_time, bin_size=250),
+    run = i
+  )
+  
+  binned_data <- rbind(binned_data, temp_df)
+}
+
+binned_data <- binned_data %>%
+  group_by(run) %>%
   mutate(time = row_number())
 ```
 
@@ -62,70 +204,72 @@ binned_data <- data %>%
 avg_data <- binned_data %>%
   pivot_longer(cols = !c(run, time), names_to = "metric", values_to = "value") %>%
   group_by(metric, time) %>%
-  summarize(m = mean(value), se = sd(value) / sqrt(n()))
+  summarize(m = mean(value), se = sd(value) / sqrt(n())) %>%
+  filter(!is.na(se))
 ```
 
 ```{r}
 cost_plot <- avg_data %>%
-  select(!se) %>%
   filter(metric %in% c("s1_cost_over_time", "s2_cost_over_time",
                        "s1_cond_entropy_over_time", "s2_cond_entropy_over_time")) %>%
   mutate(Speaker = case_when(str_detect(metric, "1") ~ "S1", T ~ "S2"),
-         metric = case_when(str_detect(metric, "cost") ~ "Cost", T ~ "H(R|S1,S2)")) %>%
-  pivot_wider(names_from = metric, values_from = m)
+         metric = case_when(str_detect(metric, "cost") ~ "Cost", T ~ "H(R|S1,S2)"))
 
-cost <- ggplot(cost_plot, aes(x = time, y = Cost, linetype = Speaker)) +
+cost <- ggplot(cost_plot %>% filter(metric == "Cost"), aes(x = time, y = m, linetype = Speaker)) +
   geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(expression(Omega(lambda))) +
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-cond_ent <- ggplot(cost_plot, aes(x = time, y = `H(R|S1,S2)`, linetype = Speaker)) +
+cond_ent <- ggplot(cost_plot %>% filter(metric == "H(R|S1,S2)"), aes(x = time, y = m, linetype = Speaker)) +
   geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(bquote(H[m]("R|S"[1],S[2]))) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
         legend.position = "none")
 
 sig_ent <- ggplot(avg_data %>% filter(metric == "signal_entropy_over_time"), aes(x = time, y = m)) +
   geom_path() +
-  ylab("H(S1,S2)") +
-  xlab("Time (1 unit = 1,000 timesteps)") +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(bquote(H[n](S[1],S[2]))) +
+  xlab("Time (1 unit = 250 timesteps)") +
   theme_bw()
 
 cost / cond_ent / sig_ent
+
+# ggsave(file = "figures/model/4d_cost.png", height = 7)
 ```
 
 ```{r}
-plot_df <- avg_data %>%
-  select(!se) %>%
-  filter(metric %in% c("ref_align_mi", "combined_entropy_over_time", "jsd_over_time")) %>%
-  mutate(metric = factor(metric,
-                         levels = c("ref_align_mi", "combined_entropy_over_time", "jsd_over_time"),
-                         labels = c("MI(S1,S2)", "H(S1+S2)", "JSD(S1,S2)"))) %>%
-  pivot_wider(names_from = metric, values_from = m)
-
-mi <- ggplot(plot_df, aes(x=time, y=`MI(S1,S2)`)) +
-  geom_line() +
-  xlab("Time (1 unit = 1,000 timesteps)") +
+mi <- ggplot(avg_data %>% filter(metric == "ref_align_mi"), aes(x=time, y=m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(bquote(MI[ ](S[1],S[2]))) + # "MI(S1,S2)"
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-ent <- ggplot(plot_df, aes(x=time, y=`H(S1+S2)`)) +
-  geom_line() +
-  xlab("Time (1 unit = 1,000 timesteps)") +
+ent <- ggplot(avg_data %>% filter(metric == "combined_entropy_over_time"), aes(x=time, y=m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(bquote(H[n](S[1]+S[2]))) + # "H(S1+S2)"
   theme_bw() +
   theme(axis.title.x = element_blank())
 
-jsd <- ggplot(plot_df, aes(x=time, y=`JSD(S1,S2)`)) +
-  geom_line() +
-  xlab("Time (1 unit = 1,000 timesteps)") +
+jsd <- ggplot(avg_data %>% filter(metric == "jsd_over_time"), aes(x=time, y=m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  ylab(bquote(JSD(S[1],S[2]))) + # "JSD(S1,S2)"
+  xlab("Time (1 unit = 250 timesteps)") +
   theme_bw()
 
 mi / ent / jsd
+
+# ggsave(file = "figures/model/4d_trends.png", height = 7)
 ```
 
-# Relating metrics
-
-## Graphs
+# Inferential tests
 
 ```{r}
 ggplot(binned_data, aes(x=time, y=ref_align_mi)) +
@@ -144,18 +288,16 @@ ggplot(binned_data, aes(x=time, y=jsd_over_time)) +
 ```{r}
 ggplot(binned_data, aes(x=combined_entropy_over_time, y=ref_align_mi)) +
   facet_wrap(~run) +
-  geom_path()
+  geom_point(alpha = 0.1, size = 0.1)
 
 ggplot(binned_data, aes(x=jsd_over_time, y=ref_align_mi)) +
   facet_wrap(~run) +
-  geom_path()
+  geom_point(alpha = 0.1, size = 0.1)
 
 ggplot(binned_data, aes(x=jsd_over_time, y=combined_entropy_over_time)) +
   facet_wrap(~run) +
-  geom_path()
+  geom_point(alpha = 0.1, size = 0.1)
 ```
-
-## w/ avg data
 
 ```{r}
 m1_df <- avg_data %>%
@@ -164,16 +306,18 @@ m1_df <- avg_data %>%
   pivot_wider(names_from = metric, values_from = m)
 
 ggplot(m1_df, aes(x=combined_entropy_over_time, y=ref_align_mi)) +
-  geom_path() +
+  geom_point(alpha = 0.1, size = 0.1) +
   xlab("H(S1+S2)") +
   ylab("MI(S1,S2)") +
   theme_bw()
 ```
 
 ```{r}
-# m1 <- lmer(ref_align_mi ~ combined_entropy_over_time + (1|time), data = binned_data)
-# summary(m1)
+summary(lm(ref_align_mi ~ combined_entropy_over_time, data = m1_df))
+```
 
+
+```{r}
 cov(m1_df$combined_entropy_over_time, m1_df$ref_align_mi)
 cor(m1_df$combined_entropy_over_time, m1_df$ref_align_mi)
 ```
@@ -186,112 +330,17 @@ m2_df <- avg_data %>%
   pivot_wider(names_from = metric, values_from = m)
 
 ggplot(m2_df, aes(x=jsd_over_time, y=ref_align_mi)) +
-  geom_path() +
+  geom_point(alpha = 0.1, size = 0.1) +
   xlab("JSD(S1,S2)") +
   ylab("MI(S1,S2)") +
   theme_bw()
 ```
 
 ```{r}
-# m2 <- lmer(ref_align_mi ~ jsd_over_time + (1|time), data = binned_data)
-# summary(m2)
+summary(lm(ref_align_mi ~ jsd_over_time, data = m2_df))
+```
 
+```{r}
 cov(m2_df$jsd_over_time, m2_df$ref_align_mi)
 cor(m2_df$jsd_over_time, m2_df$ref_align_mi)
 ```
-
-## Granger, 1
-
-```{r}
-grangertest(ref_align_mi ~ combined_entropy_over_time, order = 1, data = m1_df)
-grangertest(combined_entropy_over_time ~ ref_align_mi, order = 1, data = m1_df)
-```
-
-```{r}
-grangertest(ref_align_mi ~ jsd_over_time, order = 1, data = m2_df)
-grangertest(jsd_over_time ~ ref_align_mi, order = 1, data = m2_df)
-```
-
-```{r}
-# (Semi-) correct non-stationarity
-
-plot(diff(log(m1_df$combined_entropy_over_time)))
-plot(diff(log(m1_df$ref_align_mi)))
-```
-
-```{r}
-plot(diff(log(m2_df$jsd_over_time)))
-plot(diff(log(m2_df$ref_align_mi)))
-```
-
-```{r}
-grangertest(diff(log(m1_df$ref_align_mi)) ~ diff(log(m1_df$combined_entropy_over_time)), order = 1, data = m1_df)
-grangertest(diff(log(m1_df$combined_entropy_over_time)) ~ diff(log(m1_df$ref_align_mi)), order = 1, data = m1_df)
-```
-
-```{r}
-grangertest(diff(log(m1_df$ref_align_mi)) ~ diff(log(m1_df$combined_entropy_over_time)), order = 2, data = m1_df)
-grangertest(diff(log(m1_df$combined_entropy_over_time)) ~ diff(log(m1_df$ref_align_mi)), order = 2, data = m1_df)
-```
-
-```{r}
-grangertest(diff(log(m1_df$ref_align_mi)) ~ diff(log(m1_df$combined_entropy_over_time)), order = 5, data = m1_df)
-grangertest(diff(log(m1_df$combined_entropy_over_time)) ~ diff(log(m1_df$ref_align_mi)), order = 5, data = m1_df)
-```
-
-```{r}
-grangertest(diff(log(m2_df$ref_align_mi)) ~ diff(log(m2_df$jsd_over_time)), order = 1, data = m2_df)
-grangertest(diff(log(m2_df$jsd_over_time)) ~ diff(log(m2_df$ref_align_mi)), order = 1, data = m2_df)
-```
-
-```{r}
-grangertest(diff(log(m2_df$ref_align_mi)) ~ diff(log(m2_df$jsd_over_time)), order = 2, data = m2_df)
-grangertest(diff(log(m2_df$jsd_over_time)) ~ diff(log(m2_df$ref_align_mi)), order = 2, data = m2_df)
-```
-
-## Granger, 2
-
-```{r}
-plot(residuals(lm(combined_entropy_over_time ~ time, data = m1_df)))
-plot(residuals(lm(ref_align_mi ~ time, data = m1_df)))
-```
-
-```{r}
-plot(residuals(lm(jsd_over_time ~ time, data = m2_df)))
-plot(residuals(lm(ref_align_mi ~ time, data = m2_df)))
-```
-
-```{r}
-# grangertest(residuals(lm(ref_align_mi ~ time, data = m1_df)) ~ residuals(lm(combined_entropy_over_time ~ time, data = m1_df)),
-#             order = 1, data = m1_df)
-# 
-# grangertest(residuals(lm(combined_entropy_over_time ~ time, data = m1_df)) ~ residuals(lm(ref_align_mi ~ time, data = m1_df)),
-#             order = 1, data = m1_df)
-```
-
-```{r}
-# grangertest(residuals(lm(ref_align_mi ~ time, data = m1_df)) ~ residuals(lm(combined_entropy_over_time ~ time, data = m1_df)),
-#             order = 2, data = m1_df)
-# 
-# grangertest(residuals(lm(combined_entropy_over_time ~ time, data = m1_df)) ~ residuals(lm(ref_align_mi ~ time, data = m1_df)),
-#             order = 2, data = m1_df)
-```
-
-```{r}
-# grangertest(residuals(lm(ref_align_mi ~ time, data = m1_df)) ~ residuals(lm(jsd_over_time ~ time, data = m1_df)),
-#             order = 1, data = m2_df)
-# 
-# grangertest(residuals(lm(jsd_over_time ~ time, data = m1_df)) ~ residuals(lm(ref_align_mi ~ time, data = m1_df)),
-#             order = 1, data = m2_df)
-```
-
-```{r}
-# grangertest(residuals(lm(ref_align_mi ~ time, data = m1_df)) ~ residuals(lm(jsd_over_time ~ time, data = m1_df)),
-#             order = 3, data = m2_df)
-# 
-# grangertest(residuals(lm(jsd_over_time ~ time, data = m1_df)) ~ residuals(lm(ref_align_mi ~ time, data = m1_df)),
-#             order = 3, data = m2_df)
-```
-
-
-

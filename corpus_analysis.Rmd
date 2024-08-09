@@ -748,7 +748,7 @@ calculate_correlations <- function(sess, val){
   print(paste0("AccxJSD Cor: ", cor(temp_df$acc, temp_df$jsd)))
 }
 
-calculate_correlations("2", "Intercept")
+calculate_correlations("1", "Intercept")
 ```
 
 ```{r}
@@ -820,7 +820,7 @@ model_predictions <- expand.grid(
 )
 
 model_predictions <- model_predictions %>%
-  mutate(accuracy = predict(m4, newdata = model_predictions, re.form = ~(entropy|pair)))
+  mutate(accuracy = predict(m4, newdata = model_predictions, re.form = ~(1|pair)))
 
 ggplot(trends_df, aes(x = entropy, y = accuracy, color = session)) +
   facet_wrap(~pair) +
@@ -839,7 +839,7 @@ model_predictions <- expand.grid(
 )
 
 model_predictions <- model_predictions %>%
-  mutate(accuracy = predict(m4, newdata = model_predictions, re.form = ~(entropy|trial_group)))
+  mutate(accuracy = predict(m4, newdata = model_predictions, re.form = ~(1|trial_group)))
 
 ggplot(trends_df, aes(x = entropy, y = accuracy, color = session)) +
   facet_wrap(~trial_group) +
@@ -890,53 +890,3 @@ ggplot(trends_df, aes(x = jsd, y = accuracy, color = session)) +
   geom_point(alpha = 0.2) +
   geom_line(data = model_predictions, aes(x = jsd, y = accuracy, color = session))
 ```
-
-## Granger
-
-```{r}
-library(lmtest)
-
-avg_trends <- trends_df %>%
-  filter(session == "1") %>%
-  group_by(trial_group) %>%
-  summarize(m_acc = mean(accuracy),
-            m_ent = mean(entropy),
-            m_jsd = mean(jsd))
-```
-
-```{r}
-plot(diff(log(avg_trends$m_acc)))
-plot(diff(log(avg_trends$m_ent)))
-plot(diff(log(avg_trends$m_jsd)))
-```
-
-```{r}
-grangertest(diff(log(avg_trends$m_acc)) ~ diff(log(avg_trends$m_ent)), order = 1, data = trends_df)
-grangertest(diff(log(avg_trends$m_ent)) ~ diff(log(avg_trends$m_acc)), order = 1, data = trends_df)
-```
-
-```{r}
-grangertest(diff(log(avg_trends$m_acc)) ~ diff(log(avg_trends$m_jsd)), order = 1, data = trends_df)
-grangertest(diff(log(avg_trends$m_jsd)) ~ diff(log(avg_trends$m_acc)), order = 1, data = trends_df)
-```
-
-```{r}
-plot(residuals(lm(m_acc ~ trial_group, data = avg_trends)))
-plot(residuals(lm(m_ent ~ trial_group, data = avg_trends)))
-plot(residuals(lm(m_jsd ~ trial_group, data = avg_trends)))
-```
-
-```{r}
-grangertest(residuals(lm(m_acc ~ trial_group, data = avg_trends)) ~ residuals(lm(m_ent ~ trial_group, data = avg_trends)),
-            order = 1, data = trends_df)
-grangertest(residuals(lm(m_ent ~ trial_group, data = avg_trends)) ~ residuals(lm(m_acc ~ trial_group, data = avg_trends)),
-            order = 1, data = trends_df)
-```
-
-```{r}
-grangertest(residuals(lm(m_acc ~ trial_group, data = avg_trends)) ~ residuals(lm(m_jsd ~ trial_group, data = avg_trends)),
-            order = 1, data = trends_df)
-grangertest(residuals(lm(m_jsd ~ trial_group, data = avg_trends)) ~ residuals(lm(m_acc ~ trial_group, data = avg_trends)),
-            order = 1, data = trends_df)
-```
-

@@ -1,6 +1,7 @@
 import numpy as np
 from math import comb
 import matplotlib.pyplot as plt
+import pandas as pd
 from models import *
 
 n = 36
@@ -9,14 +10,13 @@ v = 2 / comb(n, 2)
 t = 2 * (n**2)
 lambda_values = np.linspace(0, 1, 21)
 
-
 ### Run model ###
 
-count = 0
 lex = []
 mi = []
+
 for l in lambda_values:
-  print(f'Run: #{count}')
+  print(f'Lambda: {l}')
 
   m = SignalEvolution(size=n, density=r)
   result = m.run_to_equilibrium(prob=v, lam=l, stop=t)
@@ -29,8 +29,6 @@ for l in lambda_values:
 
   # Mutual information: I(S, R)
   mi.append(mutual_information(result[0]))
-
-  count += 1
 
 
 ### Plot effective lexicon size and (normalized) mutual information ###
