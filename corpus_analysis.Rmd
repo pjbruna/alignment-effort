@@ -546,35 +546,32 @@ acc_p / ent_p / jsd_p
 acc_p <- ggplot(avg_accuracy, aes(x = trial_group, y = m, fill=session, color=session)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(title = "a)", x = "Time (1 unit = 8 trials)", y = "Accuracy", fill = "Session", color="Session") +
+  labs(x = "Time (1 unit = 8 trials)", y = "Accuracy", fill = "Session", color="Session") +
   scale_x_continuous(n.breaks = 12) +
   scale_y_continuous(limits = c(0.35,1)) +
   theme_bw() +
-  theme(panel.grid = element_blank(),
-        axis.title.x = element_blank())
+  theme(axis.title.x = element_blank())
 
 ent_p <- ggplot(avg_entropies, aes(x = trial_group, y = m, fill=session, color=session)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(title = "b)", x = "Time (1 unit = 8 trials)", y = "H(S1+S2)") +
+  labs(x = "Time (1 unit = 8 trials)", y = bquote(H[n](S[1]+S[2]))) +
   scale_x_continuous(n.breaks = 12) +
   theme_bw() +
-  theme(panel.grid = element_blank(),
-        legend.position = "none",
+  theme(legend.position = "none",
         axis.title.x = element_blank())
 
 jsd_p <- ggplot(avg_jsd, aes(x = trial_group, y = m, fill=session, color=session)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(title = "c)", x = "Time (1 unit = 8 trials)", y = "JSD(S1,S2)") +
+  labs(x = "Time (1 unit = 8 trials)", y = bquote(JSD(S[1],S[2]))) +
   scale_x_continuous(n.breaks = 12) +
   theme_bw() +
-  theme(panel.grid = element_blank(),
-        legend.position = "none")
+  theme(legend.position = "none")
 
 acc_p / ent_p / jsd_p
 
-# ggsave(file = "figures/corpus/corpus_figures_allsessions.png", height = 10, width = 7)
+ggsave(file = "figures/corpus/corpus_figures_allsessions.png", height = 7)
 ```
 
 ```{r}

@@ -1,6 +1,5 @@
 import numpy as np
 from math import comb
-import matplotlib.pyplot as plt
 import pandas as pd
 from models import *
 import multiprocessing as mp
@@ -40,23 +39,21 @@ def run_model(index):
 ### Run model ###
 
 if __name__ == "__main__":
-    runs = 2
+    runs = 10
 
     # Create a multiprocessing pool
     with mp.Pool() as pool:        
         results = pool.map(run_model, range(runs))
-    
+
     # Compile results
     lex = []
     mi = []
     lam = []
-    run_num = []
 
     for i in range(runs):
-        lex.append(results[i][0][0])
-        mi.append(results[i][1][0])
-        lam.append(results[i][2][0])
-        run_num.extend(np.repeat(i+1, len(results[i][2][0])))
+        lex.append(results[i][0])
+        mi.append(results[i][1])
+        lam.append(results[i][2])
     
     ## STORE DATA ##
 
@@ -68,7 +65,6 @@ if __name__ == "__main__":
         'lexicon': log_lex,
         'mi': log_mi,
         'lambda': log_lam,
-        'run': run_num
     }
 
     df = pd.DataFrame(data)

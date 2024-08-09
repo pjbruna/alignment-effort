@@ -74,12 +74,42 @@ avg_data_2d$metric <- factor(avg_data_2d$metric,
                              levels = c("sig_ent", "cost", "cond_ent"),
                              labels = c("Hn(S)", "Weighted Average", "Hm(R|S)"))
 
-ggplot(avg_data_2d, aes(x = time, y = m, linetype = metric)) +
+rep_over_time <- ggplot(avg_data_2d, aes(x = time, y = m, linetype = metric)) +
   geom_path() +
-  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3, linetype = 0) +
-  labs(x = "Time (1 unit = 250 timesteps)", y = "Value", linetype = "Measure") +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  labs(title = expression(lambda ~ " = 0.41"), x = "Time (1 unit = 250 timesteps)", y = "Value", linetype = "Measure") +
   theme_bw()
 ```
+
+```{r}
+lambda_data <- read_csv("data/replication.csv") %>%
+  pivot_longer(cols = !c(lambda), names_to = "metric", values_to = "value") %>%
+  group_by(lambda, metric) %>%
+  summarize(m = mean(value), se = sd(value) / sqrt(n()))
+```
+
+```{r}
+rep_mi <- ggplot(lambda_data %>% filter(metric == "mi"), aes(x = lambda, y = m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  geom_vline(xintercept = 0.41, linetype = "dotted") +
+  labs(x = expression(lambda), y = bquote(I[n](S,R))) +
+  theme_bw()
+
+rep_lex <- ggplot(lambda_data %>% filter(metric == "lexicon"), aes(x = lambda, y = m)) +
+  geom_path() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
+  geom_vline(xintercept = 0.41, linetype = "dotted") +
+  labs(x = expression(lambda), y = "Effective lexicon") +
+  theme_bw()
+```
+
+```{r}
+(rep_mi + rep_lex) / rep_over_time
+
+# ggsave(file = "figures/model/replication.png", height = 7)
+```
+
 
 # 3D figures
 
