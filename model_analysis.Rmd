@@ -100,7 +100,7 @@ rep_lex <- ggplot(lambda_data %>% filter(metric == "lexicon"), aes(x = lambda, y
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
   geom_vline(xintercept = 0.41, linetype = "dotted") +
-  labs(x = expression(lambda), y = "Effective lexicon") +
+  labs(x = expression(lambda), y = "L") +
   theme_bw()
 ```
 
@@ -276,7 +276,7 @@ cost / cond_ent / sig_ent
 mi <- ggplot(avg_data %>% filter(metric == "ref_align_mi"), aes(x=time, y=m)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
-  ylab(bquote(MI[ ](S[1],S[2]))) + # "MI(S1,S2)"
+  ylab(bquote(I[n](R[1],R[2]))) + # "MI(S1,S2)"
   theme_bw() +
   theme(axis.title.x = element_blank())
 
@@ -374,3 +374,24 @@ summary(lm(ref_align_mi ~ jsd_over_time, data = m2_df))
 cov(m2_df$jsd_over_time, m2_df$ref_align_mi)
 cor(m2_df$jsd_over_time, m2_df$ref_align_mi)
 ```
+
+
+## Transfer Entropy
+
+```{r}
+library(RTransferEntropy)
+
+wider_data <- avg_data %>%
+  pivot_wider(id_cols = c(time), names_from = metric, values_from = m) %>%
+  select(combined_entropy_over_time, jsd_over_time, ref_align_mi)
+
+print("X = entropy; Y = mi")
+print(transfer_entropy(wider_data$combined_entropy_over_time, wider_data$ref_align_mi))
+
+print("X = jsd; Y = mi")
+print(transfer_entropy(wider_data$jsd_over_time, wider_data$ref_align_mi))
+
+print("X = entropy; Y = jsd")
+print(transfer_entropy(wider_data$combined_entropy_over_time, wider_data$jsd_over_time))
+```
+

@@ -549,6 +549,8 @@ acc_p <- ggplot(avg_accuracy, aes(x = trial_group, y = m, fill=session, color=se
   labs(x = "Time (1 unit = 8 trials)", y = "Accuracy", fill = "Session", color="Session") +
   scale_x_continuous(n.breaks = 12) +
   scale_y_continuous(limits = c(0.35,1)) +
+  scale_fill_discrete(labels=c("Easy", "Moderate", "Hard")) +
+  scale_color_discrete(labels=c("Easy", "Moderate", "Hard")) +
   theme_bw() +
   theme(axis.title.x = element_blank())
 
@@ -571,7 +573,7 @@ jsd_p <- ggplot(avg_jsd, aes(x = trial_group, y = m, fill=session, color=session
 
 acc_p / ent_p / jsd_p
 
-ggsave(file = "figures/corpus/corpus_figures_allsessions.png", height = 7)
+# ggsave(file = "figures/corpus/corpus_figures_allsessions.png", height = 7)
 ```
 
 ```{r}
@@ -887,3 +889,74 @@ ggplot(trends_df, aes(x = jsd, y = accuracy, color = session)) +
   geom_point(alpha = 0.2) +
   geom_line(data = model_predictions, aes(x = jsd, y = accuracy, color = session))
 ```
+
+```{r}
+# Transfer entropy
+
+library(RTransferEntropy)
+
+avg_trends <- trends_df %>%
+  filter(session == 1) %>%
+  group_by(trial_group) %>%
+  summarize(accuracy = mean(accuracy), entropy = mean(entropy), jsd = mean(jsd))
+
+print("X = entropy; Y = accuracy")
+print(transfer_entropy(avg_trends$entropy, avg_trends$accuracy))
+
+print("X = jsd; Y = accuracy")
+print(transfer_entropy(avg_trends$jsd, avg_trends$accuracy))
+
+print("X = entropy; Y = jsd")
+print(transfer_entropy(avg_trends$entropy, avg_trends$jsd))
+```
+
+```{r}
+dyad_plot_df <- trends_df %>%
+ mutate(entropy = scale(entropy), jsd = scale(jsd), accuracy = scale(accuracy)) %>%
+ pivot_longer(cols = c(entropy, jsd, accuracy), names_to = "metric", values_to = "value") %>%
+ group_by(pair, trial_group, metric) %>%
+ summarize(m = mean(value), se = sd(value)/sqrt(n()))
+
+ggplot(dyad_plot_df, aes(x=trial_group, y=m, color=metric)) +
+  facet_wrap(~pair) +
+  geom_point() +
+  geom_line() +
+  geom_ribbon(aes(ymin = m - se, ymax = m + se, fill=metric), alpha = 0.2, linetype = 0) +
+  theme_bw()
+```
+
+```{r}
+sess1_dyad_plot_df <- trends_df %>%
+  mutate(entropy = scale(entropy), jsd = scale(jsd), accuracy = scale(accuracy)) %>%
+  pivot_longer(cols = c(entropy, jsd, accuracy), names_to = "metric", values_to = "value") %>%
+  filter(session == 1)
+
+ggplot(sess1_dyad_plot_df, aes(x=trial_group, y=value, color=metric)) +
+  facet_wrap(~pair) +
+  geom_point() +
+  geom_line() +
+  theme_bw()
+```
+
+
+```{r, message=F}
+te_entxacc <- c()
+te_jsdxacc <- c()
+te_entxjsd <- c()
+
+for(i in unique(dyad_plot_df$pair)){
+  dyad_trends <- dyad_plot_df %>%
+    filter(pair == i) %>%
+    pivot_wider(id_cols = c(pair, trial_group), names_from = metric, values_from = m)
+  
+  te1 <- transfer_entropy(dyad_trends$entropy, dyad_trends$accuracy)
+  te2 <- transfer_entropy(dyad_trends$jsd, dyad_trends$accuracy)
+  te3 <- transfer_entropy(dyad_trends$entropy, dyad_trends$jsd)
+  
+  te_entxacc <- append(te_entxacc, te1$coef[0])
+  te_jsdxacc <- append(te_jsdxacc, te2$coef[0])
+  te_entxjsd <- append(te_entxjsd, te3$coef[0])
+}
+```
+
+
