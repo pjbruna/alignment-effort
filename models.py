@@ -34,7 +34,7 @@ def mutual_information(matrix):
   return (sig_entropy - cond_entropy)
 
 
-### REPLICATION - Ferrer i Cancho & Sole (2002) ###
+### REPLICATION - Ferrer i Cancho & Sole (2003) ###
 
 class SignalEvolution:
   def __init__(self, size, density):

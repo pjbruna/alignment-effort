@@ -1,0 +1,61 @@
+---
+title: "Soft Assembly"
+author: "Polyphony J. Bruna"
+date: "2024-10-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+corpus_data <- read_csv("data/corpus_trends.csv") %>%
+  mutate(session = factor(session), measure = recode(measure, acc = "perf"))
+
+model_data <- read_csv("data/dyadic_model_trends.csv") %>%
+  filter(metric %in% c("combined_entropy_over_time", "jsd_over_time", "ref_align_mi")) %>%
+  rename(measure = metric) %>%
+  mutate(measure = recode(measure, combined_entropy_over_time = "ent", jsd_over_time = "jsd", ref_align_mi = "perf"))
+```
+
+```{r}
+bin_series <- function(series, bin_size){
+  series_length <- length(series)
+  run_off <- series_length %% bin_size
+  
+  if(run_off > 0){
+    series <- series[1:(series_length - run_off)]
+  }
+  
+  series_binned <- sapply(seq(1, length(series), by = bin_size), 
+                          function(k) mean(series[k:(k + bin_size - 1)]))
+  return(series_binned)
+}
+```
+
+```{r}
+model_data_rescaled <- model_data %>%
+  group_by(measure) %>%
+  summarise(m = bin_series(m, 485), se = bin_series(se, 485)) %>%
+  mutate(time = seq(1,n()), m = scale(m), se = scale(se))
+
+corpus_data_rescaled <- corpus_data %>%
+  group_by(session, measure) %>%
+  mutate(m = scale(m), se = scale(se))
+```
+
+```{r}
+ggplot() +
+  facet_wrap(~measure) +
+  geom_point(data = corpus_data_rescaled, aes(x=trial_group, y=m, color=session)) +
+  geom_path(data = corpus_data_rescaled, aes(x=trial_group, y=m, color=session)) +
+  geom_point(data = model_data_rescaled, aes(x=time, y=m, group="model")) +
+  geom_path(data = model_data_rescaled, aes(x=time, y=m, group="model")) +
+  theme_bw()
+```
+

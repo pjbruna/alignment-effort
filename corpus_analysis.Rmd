@@ -516,43 +516,38 @@ acc_p <- ggplot(avg_accuracy %>% filter(session == "1"), aes(x = trial_group, y 
   labs(x = "Time (1 unit = 8 trials)", y = "Accuracy") +
   scale_x_continuous(n.breaks = 12) +
   scale_y_continuous(limits = c(0.35,1)) +
-  theme_bw() +
-  theme(axis.title.x = element_blank(),
-        panel.grid = element_blank())
+  theme_bw()
 
 ent_p <- ggplot(avg_entropies %>% filter(session == "1"), aes(x = trial_group, y = m)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(x = "Time (1 unit = 8 trials)", y = "H(S1+S2)") +
+  labs(x = "Time (1 unit = 8 trials)", y = bquote(H[n](S[1]+S[2]))) +
   scale_x_continuous(n.breaks = 12) +
-  theme_bw() +
-  theme(axis.title.x = element_blank(),
-        panel.grid = element_blank())
+  theme_bw()
 
 jsd_p <- ggplot(avg_jsd %>% filter(session == "1"), aes(x = trial_group, y = m)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(x = "Time (1 unit = 8 trials)", y = "JSD(S1,S2)") +
+  labs(x = "Time (1 unit = 8 trials)", y = bquote(JSD(S[1],S[2]))) +
   scale_x_continuous(n.breaks = 12) +
-  theme_bw() +
-  theme(panel.grid = element_blank())
+  theme_bw()
 
-acc_p / ent_p / jsd_p
+acc_p + ent_p + jsd_p
 
-# ggsave(file = "figures/corpus/corpus_figures.png", height = 7)
+# ggsave(file = "figures/corpus/corpus_figures.png", width = 12)
 ```
 
 ```{r}
 acc_p <- ggplot(avg_accuracy, aes(x = trial_group, y = m, fill=session, color=session)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(x = "Time (1 unit = 8 trials)", y = "Accuracy", fill = "Session", color="Session") +
+  labs(x = "Time (1 unit = 8 trials)", y = "Accuracy") +
   scale_x_continuous(n.breaks = 12) +
   scale_y_continuous(limits = c(0.35,1)) +
   scale_fill_discrete(labels=c("Easy", "Moderate", "Hard")) +
   scale_color_discrete(labels=c("Easy", "Moderate", "Hard")) +
   theme_bw() +
-  theme(axis.title.x = element_blank())
+  theme(legend.position = "none")
 
 ent_p <- ggplot(avg_entropies, aes(x = trial_group, y = m, fill=session, color=session)) +
   geom_path() +
@@ -560,20 +555,20 @@ ent_p <- ggplot(avg_entropies, aes(x = trial_group, y = m, fill=session, color=s
   labs(x = "Time (1 unit = 8 trials)", y = bquote(H[n](S[1]+S[2]))) +
   scale_x_continuous(n.breaks = 12) +
   theme_bw() +
-  theme(legend.position = "none",
-        axis.title.x = element_blank())
+  theme(legend.position = "none")
 
 jsd_p <- ggplot(avg_jsd, aes(x = trial_group, y = m, fill=session, color=session)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(x = "Time (1 unit = 8 trials)", y = bquote(JSD(S[1],S[2]))) +
+  labs(x = "Time (1 unit = 8 trials)", y = bquote(JSD(S[1],S[2])), fill = "Session", color="Session") +
   scale_x_continuous(n.breaks = 12) +
-  theme_bw() +
-  theme(legend.position = "none")
+  scale_fill_discrete(labels=c("Easy", "Moderate", "Hard")) +
+  scale_color_discrete(labels=c("Easy", "Moderate", "Hard")) +
+  theme_bw()
 
-acc_p / ent_p / jsd_p
+acc_p + ent_p + jsd_p
 
-# ggsave(file = "figures/corpus/corpus_figures_allsessions.png", height = 7)
+# ggsave(file = "figures/corpus/corpus_figures_allsessions_horiz.png", width = 12)
 ```
 
 ```{r}
@@ -959,4 +954,77 @@ for(i in unique(dyad_plot_df$pair)){
 }
 ```
 
+## Zipfian distribution
 
+```{r}
+get_words <- function(data){
+  words_compiled = c()
+  for(n in 1:nrow(data)){
+    list <- str_split(data$Transcription[n], " ")[[1]]
+    words_compiled <- c(words_compiled, list[list != ""])
+  }
+  return(words_compiled)
+}
+
+
+word_dist <- data.frame(pair = c(), session = c(), words = c())
+for(s in unique(tylen_transcripts_filtered$Session)){
+  for(p in unique(tylen_transcripts_filtered$Pair)){
+    df <- tylen_transcripts_filtered %>%
+      filter(Session == s, Pair == p)
+    
+    temp_df <- data.frame(session = s,
+                          pair = p,
+                          words = get_words(df))
+      
+    word_dist <- rbind(word_dist, temp_df)
+  }
+}
+```
+
+```{r}
+word_dist <- word_dist %>%
+  group_by(session, pair, words) %>%
+  summarise(count = n()) %>%
+  group_by(session, pair) %>%
+  mutate(sum = sum(count), prob = count / sum(count)) %>%
+  group_by(session, pair) %>%
+  arrange(desc(prob), .by_group = TRUE) %>%
+  mutate(rank = seq(1, n()))
+
+```
+
+```{r}
+ggplot(word_dist, aes(x=rank, y=prob, color=pair)) +
+  facet_wrap(~session) +
+  geom_point(alpha=0.1) +
+  theme_bw()
+
+ggplot(word_dist, aes(x=log(rank), y=log(prob), color=pair)) +
+  facet_wrap(~session) +
+  geom_point(alpha=0.1) +
+  geom_smooth(method = "lm", color = "black") +
+  theme_bw()
+```
+
+```{r}
+word_dist %>% 
+    group_by(session) %>% 
+    do({
+      mod = lm(log(prob) ~ log(rank), data = .)
+      data.frame(Intercept = coef(mod)[1],
+                 Slope = coef(mod)[2])
+    })
+```
+
+## Save data
+
+```{r}
+# avg_accuracy$measure <- "acc"
+# avg_entropies$measure <- "ent"
+# avg_jsd$measure <- "jsd"
+# 
+# corpus_trends <- rbind(avg_accuracy, avg_entropies, avg_jsd)
+# 
+# write_csv(corpus_trends, file = "data/corpus_trends.csv")
+```

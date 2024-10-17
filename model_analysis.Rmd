@@ -182,8 +182,8 @@ ent <- ggplot(avg_data_3d %>% filter(metric == "combined_entropy_over_time"), ae
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
   ylab(bquote(H[n](S[1]+S[2]))) + # "H(S1+S2)"
-  theme_bw() +
-  theme(axis.title.x = element_blank())
+  xlab("Time (1 unit = 250 timesteps)") +
+  theme_bw()
 
 jsd <- ggplot(avg_data_3d %>% filter(metric == "jsd_over_time"), aes(x=time, y=m)) +
   geom_path() +
@@ -192,9 +192,9 @@ jsd <- ggplot(avg_data_3d %>% filter(metric == "jsd_over_time"), aes(x=time, y=m
   xlab("Time (1 unit = 250 timesteps)") +
   theme_bw()
 
-ent / jsd
+ent + jsd
 
-# ggsave(file = "figures/model/3d_trends.png", height = 7)
+ggsave(file = "figures/model/3d_trends_horiz.png", width = 12)
 ```
 
 # 4D figures
@@ -276,16 +276,16 @@ cost / cond_ent / sig_ent
 mi <- ggplot(avg_data %>% filter(metric == "ref_align_mi"), aes(x=time, y=m)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
-  ylab(bquote(I[n](R[1],R[2]))) + # "MI(S1,S2)"
-  theme_bw() +
-  theme(axis.title.x = element_blank())
+  ylab(bquote(I(R[1],R[2]))) + # "MI(S1,S2)"
+  xlab("Time (1 unit = 250 timesteps)") +
+  theme_bw()
 
 ent <- ggplot(avg_data %>% filter(metric == "combined_entropy_over_time"), aes(x=time, y=m)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.3) +
   ylab(bquote(H[n](S[1]+S[2]))) + # "H(S1+S2)"
-  theme_bw() +
-  theme(axis.title.x = element_blank())
+  xlab("Time (1 unit = 250 timesteps)") +
+  theme_bw()
 
 jsd <- ggplot(avg_data %>% filter(metric == "jsd_over_time"), aes(x=time, y=m)) +
   geom_path() +
@@ -294,9 +294,9 @@ jsd <- ggplot(avg_data %>% filter(metric == "jsd_over_time"), aes(x=time, y=m)) 
   xlab("Time (1 unit = 250 timesteps)") +
   theme_bw()
 
-mi / ent / jsd
+mi + ent + jsd
 
-# ggsave(file = "figures/model/4d_trends.png", height = 7)
+# ggsave(file = "figures/model/4d_trends_horiz.png", width = 12)
 ```
 
 # Inferential tests
