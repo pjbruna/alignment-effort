@@ -1,6 +1,6 @@
 # Least Effort and Alignment in Task-Oriented Communication
 
-Repository for all code associated with the project "Least Effort and Alignment in Task-Oriented Communication."
+Repository for all code associated with the project "Least Effort and Alignment in Task-Oriented Communication." Manuscript under review. Preprint available: [https://osf.io/preprints/psyarxiv/ftz98](https://osf.io/preprints/psyarxiv/ftz98)
 
 Model inspired by: "Least effort and the origins of scaling in human language" (Ferrer i Cancho & Sole, 2003; [link](https://www.pnas.org/doi/full/10.1073/pnas.0335980100)).
 
