@@ -2,8 +2,6 @@
 
 [Read the published article](https://doi.org/10.1111/cogs.70062), or contact me for access (pbruna@ucmerced.edu).
 
-[Link to our data](https://drive.google.com/drive/folders/1a4HnKS3Xw_TzodhjveWrU-xLccjYx9e6?usp=drive_link)
-
 __Recommended citation:__
 
 Bruna, P. and Kello, C. (2025). Least Effort and Alignment in Task-Oriented Communication. Cognitive Science, 49: e70062. https://doi.org/10.1111/cogs.70062
