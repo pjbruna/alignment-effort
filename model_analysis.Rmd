@@ -400,8 +400,3 @@ ggplot(m2_df, aes(x=jsd_over_time, y=ref_align_mi)) +
 ```{r}
 summary(lm(ref_align_mi ~ jsd_over_time, data = m2_df))
 ```
-
-```{r}
-cov(m2_df$jsd_over_time, m2_df$ref_align_mi)
-cor(m2_df$jsd_over_time, m2_df$ref_align_mi)
-```
