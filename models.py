@@ -92,7 +92,7 @@ class SignalEvolution:
     return(self.mat, cost_over_time, cond_entropy_over_time, signal_entropy_over_time)
   
 
-### EXTENSION - evolve joint speaker distribution w.r.t. shared referent dimension (R, S1, S2) ###
+### 3D - evolve joint speaker distribution w.r.t. shared referent dimension (R, S1, S2) ###
 
 class JointSpeakerAlignment:
   def __init__(self, signal, referent, density):

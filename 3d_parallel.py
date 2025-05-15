@@ -36,7 +36,7 @@ def run_model(index):
 ### RUN ###
 
 if __name__ == "__main__":
-    runs = 10
+    runs = 5
 
     # Create a multiprocessing pool
     with mp.Pool() as pool:        
@@ -80,75 +80,75 @@ if __name__ == "__main__":
     }
 
     df = pd.DataFrame(data)
-    df.to_csv(f'data/3d_n={n}_v={v}_l={l}.csv', index=False)
+    df.to_csv(f'data/3d_n={n}_l={l}.csv', index=False)
 
-    ## PLOTS ##
-
-    bin_size = 1
-
-    # Plot model info
-
-    fig, axs = plt.subplots(4, 1, figsize=(10, 12))
-    
-    # Plot results for each metric
-    for i, (metric, ylabel) in enumerate(zip([cost, cond_ent, sig_ent, sparsity],
-                                             ['Cost', 'H(R|S1,S2)', 'H(S1,S2)', 'Sparsity'])):
-        for j in range(runs):
-            run_off = len(metric[j]) % bin_size
-            series = metric[j][:-run_off] if run_off > 0 else metric[j]
-            series_binned = [np.mean(series[k:k+bin_size]) for k in range(0, len(series), bin_size)]
-            axs[i].plot(range(len(series_binned)), series_binned, color='gray', alpha=0.5)
-
-        # Create avg.
-        shortest_run = min(len(run) for run in metric)
-        truncated = [run[:shortest_run] for run in metric]
-        avg_metric = np.mean(truncated, axis=0)
-
-        run_off = len(avg_metric) % bin_size
-        avg_series = avg_metric[:-run_off] if run_off > 0 else avg_metric
-        avg_series_binned = [np.mean(avg_series[k:k+bin_size]) for k in range(0, len(avg_series), bin_size)]
-        axs[i].plot(range(len(avg_series_binned)), avg_series_binned, color='black')
-
-        # Add labels and legend for each subplot
-        axs[3].set_xlabel(f'Time (1 unit = {bin_size} timesteps)', fontsize=15)
-        axs[i].set_ylabel(ylabel, fontsize=15)
-        # axs[i].grid(True)
-
-    # axs[0].set_title('Minimizing joint cost function')
-
-    plt.tight_layout()
-    plt.savefig(f'figures/3d_parallel_n={n}_v={v}_l={l}.png')
-    plt.clf()
-
-    ### Figure ###
-
-    fig, axs = plt.subplots(2, 1, figsize=(10, 12))
-
-    # Plot results for each metric
-    for i, (metric, ylabel) in enumerate(zip([sum_ent, sig_jsd],
-                                             ['H(S1+S2)', 'JSD(S1,S2)'])):
-        for j in range(runs):
-            run_off = len(metric[j]) % bin_size
-            series = metric[j][:-run_off] if run_off > 0 else metric[j]
-            series_binned = [np.mean(series[k:k+bin_size]) for k in range(0, len(series), bin_size)]
-            axs[i].plot(range(len(series_binned)), series_binned, color='gray', alpha=0.5)
-
-        # Create avg.
-        shortest_run = min(len(run) for run in metric)
-        truncated = [run[:shortest_run] for run in metric]
-        avg_metric = np.mean(truncated, axis=0)
-
-        run_off = len(avg_metric) % bin_size
-        avg_series = avg_metric[:-run_off] if run_off > 0 else avg_metric
-        avg_series_binned = [np.mean(avg_series[k:k+bin_size]) for k in range(0, len(avg_series), bin_size)]
-        axs[i].plot(range(len(avg_series_binned)), avg_series_binned, color='black')
-
-        # Add labels and legend for each subplot
-        axs[1].set_xlabel(f'Time (1 unit = {bin_size} timesteps)', fontsize=15)
-        axs[i].set_ylabel(ylabel, fontsize=15)
-        # axs[i].grid(True)
-        # axs[0].set_title('Minimizing joint cost function')
-
-    plt.tight_layout()
-    plt.savefig(f'figures/3d_parallel_trends_n={n}_v={v}_l={l}.png')
-    plt.clf()
+#     ## PLOTS ##
+# 
+#     bin_size = 1
+# 
+#     # Plot model info
+# 
+#     fig, axs = plt.subplots(4, 1, figsize=(10, 12))
+#     
+#     # Plot results for each metric
+#     for i, (metric, ylabel) in enumerate(zip([cost, cond_ent, sig_ent, sparsity],
+#                                              ['Cost', 'H(R|S1,S2)', 'H(S1,S2)', 'Sparsity'])):
+#         for j in range(runs):
+#             run_off = len(metric[j]) % bin_size
+#             series = metric[j][:-run_off] if run_off > 0 else metric[j]
+#             series_binned = [np.mean(series[k:k+bin_size]) for k in range(0, len(series), bin_size)]
+#             axs[i].plot(range(len(series_binned)), series_binned, color='gray', alpha=0.5)
+# 
+#         # Create avg.
+#         shortest_run = min(len(run) for run in metric)
+#         truncated = [run[:shortest_run] for run in metric]
+#         avg_metric = np.mean(truncated, axis=0)
+# 
+#         run_off = len(avg_metric) % bin_size
+#         avg_series = avg_metric[:-run_off] if run_off > 0 else avg_metric
+#         avg_series_binned = [np.mean(avg_series[k:k+bin_size]) for k in range(0, len(avg_series), bin_size)]
+#         axs[i].plot(range(len(avg_series_binned)), avg_series_binned, color='black')
+# 
+#         # Add labels and legend for each subplot
+#         axs[3].set_xlabel(f'Time (1 unit = {bin_size} timesteps)', fontsize=15)
+#         axs[i].set_ylabel(ylabel, fontsize=15)
+#         # axs[i].grid(True)
+# 
+#     # axs[0].set_title('Minimizing joint cost function')
+# 
+#     plt.tight_layout()
+#     plt.savefig(f'figures/3d_parallel_n={n}_v={v}_l={l}.png')
+#     plt.clf()
+# 
+#     ### Figure ###
+# 
+#     fig, axs = plt.subplots(2, 1, figsize=(10, 12))
+# 
+#     # Plot results for each metric
+#     for i, (metric, ylabel) in enumerate(zip([sum_ent, sig_jsd],
+#                                              ['H(S1+S2)', 'JSD(S1,S2)'])):
+#         for j in range(runs):
+#             run_off = len(metric[j]) % bin_size
+#             series = metric[j][:-run_off] if run_off > 0 else metric[j]
+#             series_binned = [np.mean(series[k:k+bin_size]) for k in range(0, len(series), bin_size)]
+#             axs[i].plot(range(len(series_binned)), series_binned, color='gray', alpha=0.5)
+# 
+#         # Create avg.
+#         shortest_run = min(len(run) for run in metric)
+#         truncated = [run[:shortest_run] for run in metric]
+#         avg_metric = np.mean(truncated, axis=0)
+# 
+#         run_off = len(avg_metric) % bin_size
+#         avg_series = avg_metric[:-run_off] if run_off > 0 else avg_metric
+#         avg_series_binned = [np.mean(avg_series[k:k+bin_size]) for k in range(0, len(avg_series), bin_size)]
+#         axs[i].plot(range(len(avg_series_binned)), avg_series_binned, color='black')
+# 
+#         # Add labels and legend for each subplot
+#         axs[1].set_xlabel(f'Time (1 unit = {bin_size} timesteps)', fontsize=15)
+#         axs[i].set_ylabel(ylabel, fontsize=15)
+#         # axs[i].grid(True)
+#         # axs[0].set_title('Minimizing joint cost function')
+# 
+#     plt.tight_layout()
+#     plt.savefig(f'figures/3d_parallel_trends_n={n}_v={v}_l={l}.png')
+#     plt.clf()

@@ -41,7 +41,7 @@ def run_model(index):
 ### RUN ###
 
 if __name__ == "__main__":
-    runs = 1
+    runs = 2
 
     # Create a multiprocessing pool
     with mp.Pool() as pool:        
@@ -67,9 +67,9 @@ if __name__ == "__main__":
         sparsity.append(results[i][6][0])
         run_num.extend(np.repeat(i+1, len(results[i][6][0])))
 
-        mat_data = np.array(results[i][7][0])
-        mat_df = pd.DataFrame(mat_data)
-        mat_df.to_csv(f'data/4d_matrix_run={i}_n={n}_v={v}_l={l}.csv', index=False, header=False)
+        # mat_data = np.array(results[i][7][0])
+        # mat_df = pd.DataFrame(mat_data)
+        # mat_df.to_csv(f'data/4d_matrix_run={i}_n={n}_v={v}_l={l}.csv', index=False, header=False)
 
     ## STORE DATA ##
 
@@ -102,7 +102,8 @@ if __name__ == "__main__":
     }
 
     df = pd.DataFrame(data)
-    df.to_csv(f'data/4d_n={n}_v={v}_l={l}.csv', index=False)
+    # df.to_csv(f'data/4d_n={n}_v={v}_l={l}.csv', index=False)
+    df.to_csv(f'batch1/4d_n={n}_v={v}_l={l}.csv', index=False)
 
     ## PLOTS ##
 
@@ -180,7 +181,9 @@ if __name__ == "__main__":
         # axs[0].set_title('Minimizing joint cost function')
 
     plt.tight_layout()
-    plt.savefig(f'figures/4d_parallel_n={n}_t={t}.png')
+    plt.show()
+    # plt.savefig(f'data/4d_parallel_n={n}_t={t}.png')
+    plt.savefig(f'batch1/4d_parallel_n={n}_t={t}.png')
     plt.clf()
 
     # Plot effect trends
@@ -214,5 +217,7 @@ if __name__ == "__main__":
         # axs[0].set_title('Minimizing joint cost function')
 
     plt.tight_layout()
-    plt.savefig(f'figures/4d_parallel_trends_n={n}_t={t}.png')
+    plt.show()
+    # plt.savefig(f'figures/4d_parallel_trends_n={n}_t={t}.png')
+    plt.savefig(f'batch1/4d_parallel_trends_n={n}_t={t}.png')
     plt.clf()

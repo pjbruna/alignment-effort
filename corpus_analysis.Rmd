@@ -14,12 +14,12 @@ library(tidyverse)
 ```
 
 # Performance
+
 ```{r}
 # Load data
-## Haven't filtered based on survey
 
 tylen_data <- read_csv("data/Tylen_2023/AlienData.txt") %>%
-  filter(condition == 1,
+  filter(condition == 1, # Dyads
          test == 0) %>% # Filter out test
   mutate(session = factor(session))
 
@@ -63,6 +63,7 @@ ggplot(tylen_performance, aes(x = mean_RT, fill = session)) +
 ```
 
 ## Over time
+
 ```{r}
 accuracy <- tylen_data %>%
   mutate(trial_group = ceiling(trial / 8)) %>%
@@ -137,6 +138,34 @@ ggplot(avg_total_words, aes(x = trial_group, y = m, fill = Session, color = Sess
   theme_bw()
 
 # ggsave(file = "figures/corpus/words_spoken.png")
+```
+
+## Words per trial
+
+```{r}
+tylen_transcripts_filtered %>%
+  group_by(Pair, Session, trial_group, `Joint decision`) %>%
+  summarise(sum = sum(total_words)) %>%
+  group_by(Session, trial_group) %>%
+  summarise(m = round(mean(sum),2), se = round(sd(sum)/sqrt(n()),2))
+```
+
+## Utterances per trial
+
+```{r}
+tylen_transcripts_filtered %>%
+  group_by(Pair, Session, trial_group, `Joint decision`) %>%
+  summarise(sum = n()) %>%
+  group_by(Session, trial_group) %>%
+  summarise(m = round(mean(sum),2), se = round(sd(sum)/sqrt(n()),2))
+```
+
+## Words per utterance
+
+```{r}
+tylen_transcripts_filtered %>%
+  group_by(Session, trial_group) %>%
+  summarise(m = round(mean(total_words),2), se = round(sd(total_words)/sqrt(n()),2))
 ```
 
 ## Entropy
@@ -321,6 +350,7 @@ ggplot(avg_n_entropies_indiv, aes(x = trial_group, y = m, fill = session, color 
 ```
 
 ## Jensen-Shannon Divergence (JSD)
+
 ```{r}
 # These functions take the word probability distributions of each speaker as arguments
 calculate.kld <- function(p, q){
@@ -521,7 +551,7 @@ acc_p <- ggplot(avg_accuracy %>% filter(session == "1"), aes(x = trial_group, y 
 ent_p <- ggplot(avg_entropies %>% filter(session == "1"), aes(x = trial_group, y = m)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(x = "Time (1 unit = 8 trials)", y = bquote(H[n](S[1]+S[2]))) +
+  labs(x = "Time (1 unit = 8 trials)", y = bquote(H(S[1]+S[2]))) +
   scale_x_continuous(n.breaks = 12) +
   theme_bw()
 
@@ -541,46 +571,43 @@ acc_p + ent_p + jsd_p
 acc_p <- ggplot(avg_accuracy, aes(x = trial_group, y = m, fill=session, color=session)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(x = "Time (1 unit = 8 trials)", y = "Accuracy") +
+  labs(x = "Time (1 unit = 8 trials)", y = "Accuracy", fill = "Session", color="Session") +
   scale_x_continuous(n.breaks = 12) +
   scale_y_continuous(limits = c(0.35,1)) +
   scale_fill_discrete(labels=c("Easy", "Moderate", "Hard")) +
   scale_color_discrete(labels=c("Easy", "Moderate", "Hard")) +
   theme_bw() +
-  theme(legend.position = "none")
+  theme(axis.title.x = element_blank(),
+        axis.text.x=element_text(size=11),
+        axis.text.y=element_text(size=11))
 
 ent_p <- ggplot(avg_entropies, aes(x = trial_group, y = m, fill=session, color=session)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(x = "Time (1 unit = 8 trials)", y = bquote(H[n](S[1]+S[2]))) +
+  labs(x = "Time (1 unit = 8 trials)", y = bquote(H(S[1]+S[2]))) +
   scale_x_continuous(n.breaks = 12) +
   theme_bw() +
-  theme(legend.position = "none")
+  theme(legend.position = "none", 
+        axis.title.x = element_blank(),
+        axis.text.x=element_text(size=11),
+        axis.text.y=element_text(size=11))
 
 jsd_p <- ggplot(avg_jsd, aes(x = trial_group, y = m, fill=session, color=session)) +
   geom_path() +
   geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(x = "Time (1 unit = 8 trials)", y = bquote(JSD(S[1],S[2])), fill = "Session", color="Session") +
+  labs(x = "Time (1 unit = 8 trials)", y = bquote(JSD(S[1],S[2])), fill = "Session", color="Session") + 
   scale_x_continuous(n.breaks = 12) +
   scale_fill_discrete(labels=c("Easy", "Moderate", "Hard")) +
   scale_color_discrete(labels=c("Easy", "Moderate", "Hard")) +
-  theme_bw()
+  theme_bw() +
+  theme(legend.position = "none",
+        axis.text.x=element_text(size=11),
+        axis.text.y=element_text(size=11))
 
-acc_p + ent_p + jsd_p
+acc_p / ent_p / jsd_p
 
-# ggsave(file = "figures/corpus/corpus_figures_allsessions_horiz.png", width = 12)
-```
-
-```{r}
-ggplot(avg_n_entropies, aes(x = trial_group, y = m, fill=session, color=session)) +
-  geom_path() +
-  geom_ribbon(aes(ymin = m - se, ymax = m + se), alpha = 0.2, linetype = 0) +
-  labs(x = "Time (1 unit = 8 trials)", y = "Hn(S1+S2)", fill="Session", color="Session") +
-  scale_x_continuous(n.breaks = 12) +
-  theme_bw() + 
-  theme(panel.grid = element_blank())
-
-# ggsave(file = "figures/corpus/normalized_entropy.png")
+# ggsave(file = "figures/corpus/figure_1.pdf", height = 12)
+# ggsave(file = "figures/corpus/figure_1.png", height = 12)
 ```
 
 ```{r}
@@ -658,363 +685,97 @@ abl_1 / abl_2 / abl_3
 
 ```{r}
 library(lmerTest)
+library(report)
 
 m1 <- lmer(accuracy ~ trial_group*session + (1|subject), data = accuracy)
 summary(m1)
 ```
 
 ```{r}
+confint(m1)
+report(m1)
+```
+
+```{r}
 m2 <- lmer(entropy ~ trial_group*session + (1|pair), data = entropies)
 summary(m2)
 ```
+
+```{r}
+confint(m2)
+report(m2)
+```
+
 ```{r}
 m3 <- lmer(jsd ~ trial_group*session + (1|pair), data = jsds)
 summary(m3)
 ```
 
-### Covariation
+```{r}
+confint(m3)
+report(m3)
+```
+
+## Zipfian?
 
 ```{r}
-accuracy_filtered <- rename(accuracy, pair = subject) %>%
-  filter(pair %in% entropies$pair) %>%
-  filter(session %in% c(1,2) | session == 3 & trial_group != 12)
-  
-trends_df <- full_join(accuracy_filtered, entropies, by = c("pair", "session", "trial_group")) %>%
-  full_join(jsds, by = c("pair", "session", "trial_group"))
+# get_words <- function(data){
+#   words_compiled = c()
+#   for(n in 1:nrow(data)){
+#     list <- str_split(data$Transcription[n], " ")[[1]]
+#     words_compiled <- c(words_compiled, list[list != ""])
+#   }
+#   return(words_compiled)
+# }
+# 
+# 
+# word_dist <- data.frame(pair = c(), session = c(), words = c())
+# for(s in unique(tylen_transcripts_filtered$Session)){
+#   for(p in unique(tylen_transcripts_filtered$Pair)){
+#     df <- tylen_transcripts_filtered %>%
+#       filter(Session == s, Pair == p)
+#     
+#     temp_df <- data.frame(session = s,
+#                           pair = p,
+#                           words = get_words(df))
+#       
+#     word_dist <- rbind(word_dist, temp_df)
+#   }
+# }
 ```
 
 ```{r}
-ggplot(trends_df, aes(x = trial_group, y = accuracy, color = session)) +
-  facet_wrap(~pair) +
-  geom_jitter() +
-  labs(title = "acc") + 
-  geom_smooth(method = "lm")
-
-ggplot(trends_df, aes(x = trial_group, y = entropy, color = session)) +
-  facet_wrap(~pair) +
-  geom_jitter() +
-  labs(title = "entr") + 
-  geom_smooth(method = "lm")
-
-ggplot(trends_df, aes(x = trial_group, y = jsd, color = session)) +
-  facet_wrap(~pair) +
-  geom_jitter() +
-  labs(title = "jsd") + 
-  geom_smooth(method = "lm")
+# word_dist <- word_dist %>%
+#   group_by(session, pair, words) %>%
+#   summarise(count = n()) %>%
+#   group_by(session, pair) %>%
+#   mutate(sum = sum(count), prob = count / sum(count)) %>%
+#   group_by(session, pair) %>%
+#   arrange(desc(prob), .by_group = TRUE) %>%
+#   mutate(rank = seq(1, n()))
 ```
 
 ```{r}
-acc <- trends_df %>% 
-    group_by(pair, session) %>% 
-    do({
-      mod = lm(accuracy ~ trial_group, data = .)
-      data.frame(Intercept = coef(mod)[1],
-                 Slope = coef(mod)[2])
-    }) %>%
-  pivot_longer(cols = c("Intercept", "Slope"), names_to = "value", values_to = "acc")
-
-ent <- trends_df %>% 
-    group_by(pair, session) %>% 
-    do({
-      mod = lm(entropy ~ trial_group, data = .)
-      data.frame(Intercept = coef(mod)[1],
-                 Slope = coef(mod)[2])
-    }) %>%
-  pivot_longer(cols = c("Intercept", "Slope"), names_to = "value", values_to = "ent")
-
-jsd <- trends_df %>% 
-    group_by(pair, session) %>% 
-    do({
-      mod = lm(jsd ~ trial_group, data = .)
-      data.frame(Intercept = coef(mod)[1],
-                 Slope = coef(mod)[2])
-    }) %>%
-  pivot_longer(cols = c("Intercept", "Slope"), names_to = "value", values_to = "jsd")
-
-yb_data <- full_join(acc, ent) %>% full_join(jsd)
+# ggplot(word_dist, aes(x=rank, y=prob, color=pair)) +
+#   facet_wrap(~session) +
+#   geom_point(alpha=0.1) +
+#   theme_bw()
+# 
+# ggplot(word_dist, aes(x=log(rank), y=log(prob), color=pair)) +
+#   facet_wrap(~session) +
+#   geom_point(alpha=0.1) +
+#   geom_smooth(method = "lm", color = "black") +
+#   theme_bw()
 ```
 
 ```{r}
-calculate_correlations <- function(sess, val){
-  temp_df <- yb_data %>% filter(session == sess, value == val)
-  print(paste0("AccxEnt Cor: ", cor(temp_df$acc, temp_df$ent)))
-  print(paste0("EntxJSD Cor: ", cor(temp_df$ent, temp_df$jsd)))
-  print(paste0("AccxJSD Cor: ", cor(temp_df$acc, temp_df$jsd)))
-}
-
-calculate_correlations("1", "Intercept")
-```
-
-```{r}
-library(patchwork)
-
-p1 <- ggplot(yb_data, aes(x=jsd, y=acc, color=session)) +
-  facet_wrap(~value, ncol = 1, scales = "free") +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  theme(legend.position = "none")
-
-p2 <- ggplot(yb_data, aes(x=ent, y=acc, color=session)) +
-  facet_wrap(~value, ncol = 1, scales = "free") +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  theme(legend.position = "none")
-
-p3 <- ggplot(yb_data, aes(x=ent, y=jsd, color=session)) +
-  facet_wrap(~value, ncol = 1, scales = "free") +
-  geom_point() +
-  geom_smooth(method = "lm")
-
-p1 + p2 + p3
-```
-
-```{r}
-avg_per_dyad <- trends_df %>%
-  group_by(session, pair) %>%
-  summarize(avg_acc = mean(accuracy), avg_ent = mean(entropy), avg_jsd = mean(jsd))
-
-for(i in c("1", "2", "3")){
-  temp_df <- avg_per_dyad %>% filter(session == i)
-  
-  print(paste0("Session: ", i))
-  print(paste0("AccxEnt Cor: ", cor(temp_df$avg_acc, temp_df$avg_ent)))
-  print(paste0("AccxJSD Cor: ", cor(temp_df$avg_acc, temp_df$avg_jsd)))
-  print(paste0("JSDxEnt Cor: ", cor(temp_df$avg_jsd, temp_df$avg_ent)))
-}
-```
-
-```{r}
-ggplot(avg_per_dyad, aes(x=avg_ent, y=avg_acc, color=session)) +
-  geom_point() +
-  geom_smooth(method = "lm")
-
-ggplot(avg_per_dyad, aes(x=avg_jsd, y=avg_acc, color=session)) +
-  geom_point() +
-  geom_smooth(method = "lm")
-
-ggplot(avg_per_dyad, aes(x=avg_jsd, y=avg_ent, color=session)) +
-  geom_point() +
-  geom_smooth(method = "lm")
-```
-
-```{r}
-trends_df$session <- factor(trends_df$session, levels = c("1", "2", "3"))
-
-m4 <- lmer(accuracy ~ entropy*session + (1|pair) + (1|trial_group), data = trends_df)
-summary(m4) 
-```
-
-```{r}
-entropy_seq <- seq(min(trends_df$entropy), max(trends_df$entropy), length.out = 100)
-
-model_predictions <- expand.grid(
-  entropy = entropy_seq,
-  session = unique(trends_df$session),
-  pair = unique(trends_df$pair)
-)
-
-model_predictions <- model_predictions %>%
-  mutate(accuracy = predict(m4, newdata = model_predictions, re.form = ~(1|pair)))
-
-ggplot(trends_df, aes(x = entropy, y = accuracy, color = session)) +
-  facet_wrap(~pair) +
-  geom_point(alpha = 0.2) +
-  geom_line(data = model_predictions, aes(x = entropy, y = accuracy, color = session))
-```
-
-```{r}
-entropy_seq <- seq(min(trends_df$entropy), max(trends_df$entropy), length.out = 100)
-
-model_predictions <- expand.grid(
-  entropy = entropy_seq,
-  session = unique(trends_df$session),
-  pair = unique(trends_df$pair),
-  trial_group = unique(trends_df$trial_group)
-)
-
-model_predictions <- model_predictions %>%
-  mutate(accuracy = predict(m4, newdata = model_predictions, re.form = ~(1|trial_group)))
-
-ggplot(trends_df, aes(x = entropy, y = accuracy, color = session)) +
-  facet_wrap(~trial_group) +
-  geom_point(alpha = 0.2) +
-  geom_line(data = model_predictions, aes(x = entropy, y = accuracy, color = session))
-```
-
-```{r}
-trends_df$session <- factor(trends_df$session, levels = c("1", "2", "3"))
-
-m5 <- lmer(accuracy ~ jsd*session + (1|pair) + (1|trial_group), data = trends_df)
-summary(m5)
-```
-
-```{r}
-jsd_seq <- seq(min(trends_df$jsd), max(trends_df$jsd), length.out = 100)
-
-model_predictions <- expand.grid(
-  jsd = jsd_seq,
-  session = unique(trends_df$session),
-  pair = unique(trends_df$pair)
-)
-
-model_predictions <- model_predictions %>%
-  mutate(accuracy = predict(m5, newdata = model_predictions, re.form = ~(1|pair)))
-
-ggplot(trends_df, aes(x = jsd, y = accuracy, color = session)) +
-  facet_wrap(~pair) +
-  geom_point(alpha = 0.2) +
-  geom_line(data = model_predictions, aes(x = jsd, y = accuracy, color = session))
-```
-
-```{r}
-jsd_seq <- seq(min(trends_df$jsd), max(trends_df$jsd), length.out = 100)
-
-model_predictions <- expand.grid(
-  jsd = jsd_seq,
-  session = unique(trends_df$session),
-  pair = unique(trends_df$pair),
-  trial_group = unique(trends_df$trial_group)
-)
-
-model_predictions <- model_predictions %>%
-  mutate(accuracy = predict(m5, newdata = model_predictions, re.form = ~(1|trial_group)))
-
-ggplot(trends_df, aes(x = jsd, y = accuracy, color = session)) +
-  facet_wrap(~trial_group) +
-  geom_point(alpha = 0.2) +
-  geom_line(data = model_predictions, aes(x = jsd, y = accuracy, color = session))
-```
-
-```{r}
-# Transfer entropy
-
-library(RTransferEntropy)
-
-avg_trends <- trends_df %>%
-  filter(session == 1) %>%
-  group_by(trial_group) %>%
-  summarize(accuracy = mean(accuracy), entropy = mean(entropy), jsd = mean(jsd))
-
-print("X = entropy; Y = accuracy")
-print(transfer_entropy(avg_trends$entropy, avg_trends$accuracy))
-
-print("X = jsd; Y = accuracy")
-print(transfer_entropy(avg_trends$jsd, avg_trends$accuracy))
-
-print("X = entropy; Y = jsd")
-print(transfer_entropy(avg_trends$entropy, avg_trends$jsd))
-```
-
-```{r}
-dyad_plot_df <- trends_df %>%
- mutate(entropy = scale(entropy), jsd = scale(jsd), accuracy = scale(accuracy)) %>%
- pivot_longer(cols = c(entropy, jsd, accuracy), names_to = "metric", values_to = "value") %>%
- group_by(pair, trial_group, metric) %>%
- summarize(m = mean(value), se = sd(value)/sqrt(n()))
-
-ggplot(dyad_plot_df, aes(x=trial_group, y=m, color=metric)) +
-  facet_wrap(~pair) +
-  geom_point() +
-  geom_line() +
-  geom_ribbon(aes(ymin = m - se, ymax = m + se, fill=metric), alpha = 0.2, linetype = 0) +
-  theme_bw()
-```
-
-```{r}
-sess1_dyad_plot_df <- trends_df %>%
-  mutate(entropy = scale(entropy), jsd = scale(jsd), accuracy = scale(accuracy)) %>%
-  pivot_longer(cols = c(entropy, jsd, accuracy), names_to = "metric", values_to = "value") %>%
-  filter(session == 1)
-
-ggplot(sess1_dyad_plot_df, aes(x=trial_group, y=value, color=metric)) +
-  facet_wrap(~pair) +
-  geom_point() +
-  geom_line() +
-  theme_bw()
-```
-
-
-```{r, message=F}
-te_entxacc <- c()
-te_jsdxacc <- c()
-te_entxjsd <- c()
-
-for(i in unique(dyad_plot_df$pair)){
-  dyad_trends <- dyad_plot_df %>%
-    filter(pair == i) %>%
-    pivot_wider(id_cols = c(pair, trial_group), names_from = metric, values_from = m)
-  
-  te1 <- transfer_entropy(dyad_trends$entropy, dyad_trends$accuracy)
-  te2 <- transfer_entropy(dyad_trends$jsd, dyad_trends$accuracy)
-  te3 <- transfer_entropy(dyad_trends$entropy, dyad_trends$jsd)
-  
-  te_entxacc <- append(te_entxacc, te1$coef[0])
-  te_jsdxacc <- append(te_jsdxacc, te2$coef[0])
-  te_entxjsd <- append(te_entxjsd, te3$coef[0])
-}
-```
-
-## Zipfian distribution
-
-```{r}
-get_words <- function(data){
-  words_compiled = c()
-  for(n in 1:nrow(data)){
-    list <- str_split(data$Transcription[n], " ")[[1]]
-    words_compiled <- c(words_compiled, list[list != ""])
-  }
-  return(words_compiled)
-}
-
-
-word_dist <- data.frame(pair = c(), session = c(), words = c())
-for(s in unique(tylen_transcripts_filtered$Session)){
-  for(p in unique(tylen_transcripts_filtered$Pair)){
-    df <- tylen_transcripts_filtered %>%
-      filter(Session == s, Pair == p)
-    
-    temp_df <- data.frame(session = s,
-                          pair = p,
-                          words = get_words(df))
-      
-    word_dist <- rbind(word_dist, temp_df)
-  }
-}
-```
-
-```{r}
-word_dist <- word_dist %>%
-  group_by(session, pair, words) %>%
-  summarise(count = n()) %>%
-  group_by(session, pair) %>%
-  mutate(sum = sum(count), prob = count / sum(count)) %>%
-  group_by(session, pair) %>%
-  arrange(desc(prob), .by_group = TRUE) %>%
-  mutate(rank = seq(1, n()))
-
-```
-
-```{r}
-ggplot(word_dist, aes(x=rank, y=prob, color=pair)) +
-  facet_wrap(~session) +
-  geom_point(alpha=0.1) +
-  theme_bw()
-
-ggplot(word_dist, aes(x=log(rank), y=log(prob), color=pair)) +
-  facet_wrap(~session) +
-  geom_point(alpha=0.1) +
-  geom_smooth(method = "lm", color = "black") +
-  theme_bw()
-```
-
-```{r}
-word_dist %>% 
-    group_by(session) %>% 
-    do({
-      mod = lm(log(prob) ~ log(rank), data = .)
-      data.frame(Intercept = coef(mod)[1],
-                 Slope = coef(mod)[2])
-    })
+# word_dist %>% 
+#     group_by(session) %>% 
+#     do({
+#       mod = lm(log(prob) ~ log(rank), data = .)
+#       data.frame(Intercept = coef(mod)[1],
+#                  Slope = coef(mod)[2])
+#     })
 ```
 
 ## Save data
