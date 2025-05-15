@@ -1,7 +1,13 @@
 # Least Effort and Alignment in Task-Oriented Communication
 
-Repository for all code associated with the project "Least Effort and Alignment in Task-Oriented Communication."
+[Read the published article](https://doi.org/10.1111/cogs.70062), or contact me for access (pbruna@ucmerced.edu).
 
-Model inspired by: "Least effort and the origins of scaling in human language" (Ferrer i Cancho & Sole, 2003; [link](https://www.pnas.org/doi/full/10.1073/pnas.0335980100)).
+[Link to our data](https://drive.google.com/drive/folders/1a4HnKS3Xw_TzodhjveWrU-xLccjYx9e6?usp=drive_link)
 
-Corpus analyzed (with authors' permission): "The Social Route to Abstraction: Interaction and Diversity Enhance Performance and Transfer in a Rule-Based Categorization Task" (Tylen et al., 2023; [link](https://onlinelibrary.wiley.com/doi/full/10.1111/cogs.13338)).
+__Recommended citation:__
+
+Bruna, P. and Kello, C. (2025). Least Effort and Alignment in Task-Oriented Communication. Cognitive Science, 49: e70062. https://doi.org/10.1111/cogs.70062
+
+__Acknowledgements:__
+
+This project received support from the Institute for Humane Studies (grant no. IHS018559) and from a UC Merced Cognitive & Information Sciences Fellowship to Polyphony Bruna. Special thanks to Riccardo Fusaroli for making the Alien Game data available. Corpus analyzed (with authors' permission): "The Social Route to Abstraction: Interaction and Diversity Enhance Performance and Transfer in a Rule-Based Categorization Task" (Tylen et al., 2023). Model inspired by: "Least effort and the origins of scaling in human language" (Ferrer i Cancho & Sole, 2003).
