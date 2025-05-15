@@ -4,10 +4,10 @@ import pandas as pd
 from models import *
 import multiprocessing as mp
 
-n = 4
+n = 6
 m = n**2
 r = 0.5 # SDIC?
-v = 2 / comb(63, 2)
+v = 1 / (m**3)
 t = 2 * (m**2)
 l = 0.6
 
